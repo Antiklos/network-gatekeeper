@@ -1,0 +1,66 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "link_test.c"
+
+main(int args, char *argv[])
+{
+
+void (send_request*)();
+void (send_propose*)();
+void (send_accept*)();
+void (send_reject*)();
+void (send_begin*)();
+void (send_stop*)();
+
+void (set_interface*)();
+
+void (send_payment*)();
+
+printf("Execution was successful");
+
+return 0;
+}
+
+// Link Interface
+
+void receive_request() {
+
+}
+
+void receive_propose() {
+
+}
+
+void receive_accept() {
+
+}
+
+void receive_reject() {
+
+}
+
+void receive_begin() {
+
+}
+
+void receive_stop() {
+
+}
+
+// Network Interface
+
+void count_packets(int count) {
+
+}
+
+
+// Payment Interface
+
+void receive_payment(int amount) {
+
+}
+
+// User Interface
+
+

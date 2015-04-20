@@ -1,0 +1,5 @@
+#!/usr/bin/python
+
+import interface_link
+
+print "Hello, Python!";

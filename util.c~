@@ -1,0 +1,42 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+enum EVENT {
+  MESSAGE_REQUEST = 0,
+  MESSAGE_PROPOSE = 1,
+  MESSAGE_ACCEPT = 2,
+  MESSAGE_REJECT = 3,
+  MESSAGE_BEGIN = 4,
+  MESSAGE_STOP = 5,
+  PAYMENT_RECEIVED = 6,
+  PACKETS_SENT = 7
+};
+
+main(int args, char *argv[])
+{
+int event;
+sscanf(argv[1], "%d", &event);
+
+enum EVENT message = event;
+
+printf("Argument is %i\n",message);
+
+switch (message) {
+  case MESSAGE_REQUEST:
+  case MESSAGE_PROPOSE:
+  case MESSAGE_ACCEPT:
+    system("./payment 0 5.88");
+  case MESSAGE_REJECT:
+  case MESSAGE_BEGIN:
+  case MESSAGE_STOP:
+  case PAYMENT_RECEIVED:
+  case PACKETS_SENT:
+    printf("Delegated Message\n");
+  default:
+    printf("End\n");
+}
+
+return 0;
+}
+
+

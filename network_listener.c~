@@ -1,0 +1,11 @@
+#include "util.h"
+#include <stdlib.h>
+
+main(int args, char *argv[])
+{
+system("./test ");
+
+return 0;
+}
+
+

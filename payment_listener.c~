@@ -1,0 +1,15 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+main(int args, char *argv[])
+{
+
+switch (message) {
+  case SEND_PAYMENT:
+    printf("Sending payment of %s\n",argv[2]);
+}
+
+return 0;
+}
+
+
