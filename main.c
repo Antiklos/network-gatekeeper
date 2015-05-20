@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <glib.h>
+#include <string.h>
 
 #include "main.h"
 #include "link_test.c"
@@ -9,17 +11,30 @@
 
 static T_CONFIG read_config()
 {
-  T_CONFIG config;
-  config.link_interface = LINK_INTERFACE_TEST_IDENTIFIER;
-  config.network_interface = NETWORK_INTERFACE_TEST_IDENTIFIER;
-  config.payment_interface = PAYMENT_INTERFACE_TEST_IDENTIFIER;
-  return config;
+  GKeyFile* gkf = g_key_file_new();
+  GError* error = NULL;
 
-//FILE *file;
-//file = fopen("network.conf",'r');
-//int filesize = 
-//char* contents = malloc(filesize * sizeof(char));
-//fclose(file);
+  char* filename = (gchar*)malloc(256 * sizeof(gchar));
+  strcpy(filename, "net.conf");
+  const gchar* conf_file = filename;
+
+  if (!g_key_file_load_from_file(gkf, conf_file, G_KEY_FILE_NONE, &error)){
+    fprintf (stderr, "Could not read config file %s\n", conf_file);
+  }
+
+  gchar *link_value = g_key_file_get_value(gkf, "Group", "LINK_INTERFACE", NULL);
+  gchar *network_value = g_key_file_get_value(gkf, "Group", "NETWORK_INTERFACE", NULL);
+  gchar *payment_value = g_key_file_get_value(gkf, "Group", "PAYMENT_INTERFACE", NULL);
+  gchar *user_value = g_key_file_get_value(gkf, "Group", "USER_INTERFACE", NULL);
+
+  g_key_file_free(gkf);
+  free(filename);
+
+  T_CONFIG config;
+  config.link_interface = (int)strtol(link_value,NULL,10);
+  config.network_interface = (int)strtol(network_value,NULL,10);
+  config.payment_interface = (int)strtol(payment_value,NULL,10);
+  return config;
 }
 
 static bool input_loop()
@@ -81,6 +96,8 @@ T_CONFIG config = read_config();
 T_LINK_INTERFACE link_interface = link_interfaces[config.link_interface];
 T_NETWORK_INTERFACE network_interface = network_interfaces[config.network_interface];
 T_PAYMENT_INTERFACE payment_interface = payment_interfaces[config.payment_interface];
+
+link_interface.link_init();
 
 bool loop = true;
 while (loop == true) {

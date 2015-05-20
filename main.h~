@@ -11,7 +11,10 @@
 #define INPUT_RECEIVE_REJECT 3
 #define INPUT_RECEIVE_BEGIN 4
 #define INPUT_RECEIVE_STOP 5
+#define INPUT_COUNT_PACKETS 6
+#define INPUT_RECEIVE_PAYMENT 7
 
+#define CONFIG_FILE "net.conf"
 
 #ifndef MAIN_H
 #define MAIN_H
