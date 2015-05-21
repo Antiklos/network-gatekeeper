@@ -1,6 +1,12 @@
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <unistd.h>
+#include <syslog.h>
 #include <glib.h>
 #include <string.h>
 
@@ -97,14 +103,51 @@ T_LINK_INTERFACE link_interface = link_interfaces[config.link_interface];
 T_NETWORK_INTERFACE network_interface = network_interfaces[config.network_interface];
 T_PAYMENT_INTERFACE payment_interface = payment_interfaces[config.payment_interface];
 
-link_interface.link_init();
+/* Our process ID and Session ID */
+pid_t pid, sid;
 
-bool loop = true;
-while (loop == true) {
-  loop = input_loop();
+/* Fork off the parent process */
+pid = fork();
+if (pid < 0) {
+        exit(EXIT_FAILURE);
+}
+/* If we got a good PID, then
+   we can exit the parent process. */
+if (pid > 0) {
+        exit(EXIT_SUCCESS);
 }
 
-return 0;
+/* Change the file mode mask */
+umask(0);
+        
+/* Open any logs here */
+        
+/* Create a new SID for the child process */
+sid = setsid();
+if (sid < 0) {
+        /* Log the failure */
+        exit(EXIT_FAILURE);
+}
+
+/* Change the current working directory */
+if ((chdir("/")) < 0) {
+        /* Log the failure */
+        exit(EXIT_FAILURE);
+}
+
+/* Close out the standard file descriptors */
+close(STDIN_FILENO);
+close(STDOUT_FILENO);
+close(STDERR_FILENO);
+
+/* Daemon-specific initialization goes here */
+
+/* The Big Loop */
+while (1) {
+  sleep(30);
+}
+
+exit(EXIT_SUCCESS);
 }
 
 // Link Interface
