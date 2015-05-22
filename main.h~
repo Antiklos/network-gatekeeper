@@ -14,7 +14,7 @@
 #define INPUT_COUNT_PACKETS 6
 #define INPUT_RECEIVE_PAYMENT 7
 
-#define CONFIG_FILE "net.conf"
+#define SOCK_PATH "/var/run/network_market.socket"
 
 #ifndef MAIN_H
 #define MAIN_H

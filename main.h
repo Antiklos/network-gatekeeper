@@ -14,6 +14,8 @@
 #define INPUT_COUNT_PACKETS 6
 #define INPUT_RECEIVE_PAYMENT 7
 
+#define SOCK_PATH "/var/run/network_market.sock"
+
 #ifndef MAIN_H
 #define MAIN_H
 

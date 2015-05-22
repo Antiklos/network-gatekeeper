@@ -9,6 +9,10 @@
 #include <syslog.h>
 #include <glib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/types.h> 
+#include <sys/socket.h>
+#include <sys/un.h>
 
 #include "main.h"
 #include "link_test.c"
@@ -135,10 +139,42 @@ if ((chdir("/")) < 0) {
         exit(EXIT_FAILURE);
 }
 
+//Set up socket for communication
+int sockfd, newsockfd;
+socklen_t clilen;
+char buffer[256];
+struct sockaddr_un serv_addr, cli_addr;
+int n;
+sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+if (sockfd < 0) { 
+  error("ERROR opening socket");
+}
+serv_addr.sun_family = AF_UNIX;
+//TODO: For some reason it's truncating the socket file by two characters
+strncpy(serv_addr.sun_path, SOCK_PATH,
+            sizeof(serv_addr.sun_path) - 1);
+int result = bind(sockfd, (struct sockaddr *) &serv_addr, strlen(SOCK_PATH));
+if (result < 0) {
+      printf("Binding error%i\n",result);
+}
+listen(sockfd,2);
+clilen = sizeof(cli_addr);
+newsockfd = accept(sockfd, 
+         (struct sockaddr *) &cli_addr, 
+         &clilen);
+if (newsockfd < 0) error("ERROR on accept");
+bzero(buffer,256);
+n = read(newsockfd,buffer,255);
+if (n < 0) error("ERROR reading from socket");
+n = write(newsockfd,"I got your message",18);
+if (n < 0) error("ERROR writing to socket");
+close(newsockfd);
+close(sockfd);
+
 /* Close out the standard file descriptors */
-close(STDIN_FILENO);
-close(STDOUT_FILENO);
-close(STDERR_FILENO);
+//close(STDIN_FILENO);
+//close(STDOUT_FILENO);
+//close(STDERR_FILENO);
 
 /* Daemon-specific initialization goes here */
 
