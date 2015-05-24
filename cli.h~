@@ -1,0 +1,5 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+
+#define SOCK_PATH "/var/run/network_market.sock"

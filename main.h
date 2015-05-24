@@ -15,6 +15,7 @@
 #define INPUT_RECEIVE_PAYMENT 7
 
 #define SOCK_PATH "/var/run/network_market.sock"
+#define LOG_PATH "/var/log/network_market.log"
 
 #ifndef MAIN_H
 #define MAIN_H
@@ -54,6 +55,9 @@ typedef struct S_PAYMENT_INTERFACE {
 static bool input_loop();
 
 static T_CONFIG read_config();
+
+static int write_buffer(int sockfd, const char* message);
+int send_cli_message();
 
 // Link Interface
 

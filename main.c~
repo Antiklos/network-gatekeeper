@@ -86,103 +86,202 @@ static bool input_loop()
   return loop;
 }
 
+static int write_buffer(int sockfd, const char* message)
+{
+  return write(sockfd,message,strlen(message));
+}
+
+int daemon_command(int sockfd, socklen_t clilen, struct sockaddr_un cli_addr, char *buffer)
+{
+  listen(sockfd,2);
+  clilen = sizeof(cli_addr);
+  int newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
+  if (newsockfd < 0) { 
+    printf("ERROR on accept\n");
+    return -1;
+  }
+  bzero(buffer,256);
+  int n = read(newsockfd,buffer,255);
+  if (n < 0) {
+    printf("ERROR reading from socket\n");
+    return -1;
+  }
+  printf("Received command %s\n",buffer);
+
+  if (strcmp(buffer,"test") == 0) {
+    n = write_buffer(newsockfd,"Test OK");
+  }
+  else if (strcmp(buffer,"stop") == 0) {
+    n = write_buffer(newsockfd,"Daemon stopping.");
+    return -1;
+  }
+  else {
+    n = write_buffer(newsockfd,"Invalid command sent to server.");
+  }
+  if (n < 0) {
+    printf("ERROR writing to socket\n");
+    return -1;
+  }
+}
+
+int start()
+{
+  //Create interface arrays
+  T_LINK_INTERFACE link_interfaces[LINK_INTERFACES_NUMBER];
+  T_NETWORK_INTERFACE network_interfaces[NETWORK_INTERFACES_NUMBER];
+  T_PAYMENT_INTERFACE payment_interfaces[PAYMENT_INTERFACES_NUMBER];
+
+  //Populate interface arrays
+  link_interfaces[LINK_INTERFACE_TEST_IDENTIFIER] = link_test_interface();
+  network_interfaces[NETWORK_INTERFACE_TEST_IDENTIFIER] = network_test_interface();
+  payment_interfaces[PAYMENT_INTERFACE_TEST_IDENTIFIER] = payment_test_interface();
+
+  //Read config file
+  T_CONFIG config = read_config();
+
+  //Get interfaces from config file
+  T_LINK_INTERFACE link_interface = link_interfaces[config.link_interface];
+  T_NETWORK_INTERFACE network_interface = network_interfaces[config.network_interface];
+  T_PAYMENT_INTERFACE payment_interface = payment_interfaces[config.payment_interface];
+
+  /* Our process ID and Session ID */
+  pid_t pid, sid;
+
+  /* Fork off the parent process */
+  pid = fork();
+  if (pid < 0) {
+    exit(EXIT_FAILURE);
+  }
+  /* If we got a good PID, then
+     we can exit the parent process. */
+  if (pid > 0) {
+    exit(EXIT_SUCCESS);
+  }
+
+  /* Change the file mode mask */
+  umask(0);
+    
+  /* Create a new SID for the child process */
+  sid = setsid();
+  if (sid < 0) {
+    /* Log the failure */
+    exit(EXIT_FAILURE);
+  }
+
+  /* Change the current working directory */
+  if ((chdir("/")) < 0) {
+    /* Log the failure */
+    exit(EXIT_FAILURE);
+  }
+
+  /* Open any logs here */
+  close(STDIN_FILENO);
+  if (open("/dev/null",O_RDONLY) == -1) {
+    printf("failed to reopen stdin while daemonizing (errno=%d)",errno);
+    exit(EXIT_FAILURE);
+  }
+  int logfile_fileno = open(LOG_PATH,O_RDWR|O_CREAT|O_APPEND,S_IRUSR|S_IWUSR|S_IRGRP);
+  if (logfile_fileno == -1) {
+    printf("failed to open logfile (errno=%d)",errno);
+    exit(EXIT_FAILURE);
+  }
+  dup2(logfile_fileno,STDOUT_FILENO);
+  dup2(logfile_fileno,STDERR_FILENO);
+  close(logfile_fileno);
+
+  //Set up socket for communication
+  int sockfd, newsockfd;
+  socklen_t clilen;
+  char buffer[256];
+  struct sockaddr_un serv_addr, cli_addr;
+  int n;
+  sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+  if (sockfd < 0) { 
+    printf("ERROR opening socket\n");
+  }
+  serv_addr.sun_family = AF_UNIX;
+  strncpy(serv_addr.sun_path, SOCK_PATH,strlen(SOCK_PATH));
+  printf("Socket path: %s\n",serv_addr.sun_path);
+  int result = bind(sockfd, (struct sockaddr *) &serv_addr, strlen(SOCK_PATH) + 2);
+  if (result < 0) {
+    printf("Binding error %i. Are you running as root?\n",result);
+  }
+
+  int command_result = 0;
+  while(command_result > -1) {
+    command_result = daemon_command(sockfd,clilen,cli_addr,sockaddr,buffer);
+  }
+
+  close(newsockfd);
+  close(sockfd);
+  if (unlink(SOCK_PATH) < 0) {
+    printf("ERROR deleting socket\n");
+  }
+  exit(EXIT_SUCCESS);
+  return 0;
+}
+
+int send_cli_message(char *message)
+{
+  int sockfd, portno, n;
+  struct sockaddr_un serv_addr;
+  bzero((char *) &serv_addr, sizeof(serv_addr));
+  char buffer[256];
+  bzero(buffer,256);
+
+  sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+  if (sockfd < 0) {
+      printf("ERROR opening socket\n");
+      exit(0);
+  }
+  serv_addr.sun_family = AF_UNIX;
+  strncpy(serv_addr.sun_path, SOCK_PATH, strlen(SOCK_PATH));
+  if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) {
+      printf("ERROR connecting. Are you running as root?\n");
+      exit(0);
+  }
+  strncpy(buffer, message, strlen(message));
+  n = write_buffer(sockfd,buffer);
+  if (n < 0) {
+       printf("ERROR writing to socket\n");
+       exit(0);
+  }
+  bzero(buffer,256);
+  n = read(sockfd,buffer,255);
+  if (n < 0) {
+       printf("ERROR reading from socket\n");
+       exit(0);
+  }
+  printf("%s\n",buffer);
+  close(sockfd);
+  return 0;
+}
+
 main(int args, char *argv[])
 {
+  if (args < 2 || args > 3)
+  {
+    printf("You should use one or two arguments. No action taken.\n");
+    return 1;
+  }
 
-//Create interface arrays
-T_LINK_INTERFACE link_interfaces[LINK_INTERFACES_NUMBER];
-T_NETWORK_INTERFACE network_interfaces[NETWORK_INTERFACES_NUMBER];
-T_PAYMENT_INTERFACE payment_interfaces[PAYMENT_INTERFACES_NUMBER];
-
-//Populate interface arrays
-link_interfaces[LINK_INTERFACE_TEST_IDENTIFIER] = link_test_interface();
-network_interfaces[NETWORK_INTERFACE_TEST_IDENTIFIER] = network_test_interface();
-payment_interfaces[PAYMENT_INTERFACE_TEST_IDENTIFIER] = payment_test_interface();
-
-//Read config file
-T_CONFIG config = read_config();
-
-//Get interfaces from config file
-T_LINK_INTERFACE link_interface = link_interfaces[config.link_interface];
-T_NETWORK_INTERFACE network_interface = network_interfaces[config.network_interface];
-T_PAYMENT_INTERFACE payment_interface = payment_interfaces[config.payment_interface];
-
-/* Our process ID and Session ID */
-pid_t pid, sid;
-
-/* Fork off the parent process */
-pid = fork();
-if (pid < 0) {
-        exit(EXIT_FAILURE);
-}
-/* If we got a good PID, then
-   we can exit the parent process. */
-if (pid > 0) {
-        exit(EXIT_SUCCESS);
-}
-
-/* Change the file mode mask */
-umask(0);
-        
-/* Open any logs here */
-        
-/* Create a new SID for the child process */
-sid = setsid();
-if (sid < 0) {
-        /* Log the failure */
-        exit(EXIT_FAILURE);
-}
-
-/* Change the current working directory */
-if ((chdir("/")) < 0) {
-        /* Log the failure */
-        exit(EXIT_FAILURE);
-}
-
-//Set up socket for communication
-int sockfd, newsockfd;
-socklen_t clilen;
-char buffer[256];
-struct sockaddr_un serv_addr, cli_addr;
-int n;
-sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
-if (sockfd < 0) { 
-  error("ERROR opening socket");
-}
-serv_addr.sun_family = AF_UNIX;
-strncpy(serv_addr.sun_path, SOCK_PATH,
-            sizeof(serv_addr.sun_path) - 1);
-int result = bind(sockfd, (struct sockaddr *) &serv_addr, strlen(SOCK_PATH));
-if (result < 0) {
-      printf("Binding error%i\n",result);
-}
-listen(sockfd,2);
-clilen = sizeof(cli_addr);
-newsockfd = accept(sockfd, 
-         (struct sockaddr *) &cli_addr, 
-         &clilen);
-if (newsockfd < 0) error("ERROR on accept");
-bzero(buffer,256);
-n = read(newsockfd,buffer,255);
-if (n < 0) error("ERROR reading from socket");
-n = write(newsockfd,"I got your message",18);
-if (n < 0) error("ERROR writing to socket");
-close(newsockfd);
-close(sockfd);
-
-/* Close out the standard file descriptors */
-//close(STDIN_FILENO);
-//close(STDOUT_FILENO);
-//close(STDERR_FILENO);
-
-/* Daemon-specific initialization goes here */
-
-/* The Big Loop */
-while (1) {
-  sleep(30);
-}
-
-exit(EXIT_SUCCESS);
+  if (strcmp(argv[1],"start") == 0)
+  {
+    return start();
+  } 
+  else if (strcmp(argv[1],"stop") == 0)
+  {
+    return send_cli_message("stop");
+  } 
+  else if (strcmp(argv[1],"server") == 0 && args == 3)
+  {
+    return send_cli_message(argv[2]);
+  }
+  else
+  {
+    printf("Invalid argument.\n");
+    return 1;
+  }
 }
 
 // Link Interface
@@ -223,7 +322,4 @@ void count_packets(int count) {
 void receive_payment(int amount) {
   printf("Executing receive_payment with %d having been received.\n", amount);
 }
-
-// User Interface
-
 
