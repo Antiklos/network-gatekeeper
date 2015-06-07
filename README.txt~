@@ -1,3 +1,33 @@
-gcc main.c -o main -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -lglib-2.0
+To compile: gcc main.c -o main -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -lglib-2.0
 
-gcc cli.c -o cli
+To start server: ./main start
+
+To test server: ./main server test
+
+To test receipt of a certain message from the link layer: ./main server "[message]"
+  This will write the message to the socket that the server is listening on.
+
+Example messages:
+
+receive request (interface_id) (address)
+receive propose (interface_id) (address) (price)
+receive accept (interface_id)
+receive reject (interface_id) (price)
+receive begin (interface_id)
+
+Definitions:
+
+interface_id: This is a string of max length 256 that identifies the link level interface the message came in from
+address: This is a string that identifies the network level address messages will be sent to
+  For example, if the network interface is IPv4, an example address could be 192.168.10.44
+price: This is the price being negotiated
+
+What each message means:
+
+Each message is an interaction between what we'll call a "client" and "server". A client wants access to the rest of the network through the server, and the server is willing to route the client's packets for a price.
+
+-->request  This is the first message that the client will send to the server asking for a price for a certain network address
+<--propose  The server responds with a proposed price and terms
+-->accept   The client will either accept this price and terms after which the server will respond with begin, or
+-->reject   The client may reject the request, offering a different price or terms. The server must respond with another propose
+<--begin    The server responds, letting the client know that they may begin sending network packets

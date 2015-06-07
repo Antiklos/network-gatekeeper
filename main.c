@@ -18,6 +18,7 @@
 #include "link_test.c"
 #include "network_test.c"
 #include "payment_test.c"
+#include "contract.c"
 
 static T_CONFIG read_config()
 {
@@ -47,81 +48,9 @@ static T_CONFIG read_config()
   return config;
 }
 
-static bool input_loop()
-{
-  bool loop = true;
-  int input;
-  scanf("%d", &input);
-
-  switch(input) {
-    case INPUT_RECEIVE_REQUEST:
-      receive_request();
-    break;
-    case INPUT_RECEIVE_PROPOSE:
-      receive_propose();
-    break;
-    case INPUT_RECEIVE_ACCEPT:
-      receive_accept();
-    break;
-    case INPUT_RECEIVE_REJECT:
-      receive_reject();
-    break;
-    case INPUT_RECEIVE_BEGIN:
-      receive_begin();
-    break;
-    case INPUT_RECEIVE_STOP:
-      receive_stop();
-    break;
-    case INPUT_COUNT_PACKETS:
-      count_packets(5);
-    break;
-    case INPUT_RECEIVE_PAYMENT:
-      receive_payment(10);
-    break;
-    default:
-      loop = false;
-      break;
-  }
-
-  return loop;
-}
-
 static int write_buffer(int sockfd, const char* message)
 {
   return write(sockfd,message,strlen(message));
-}
-
-int daemon_command(int sockfd, socklen_t clilen, struct sockaddr_un cli_addr, char *buffer)
-{
-  listen(sockfd,2);
-  clilen = sizeof(cli_addr);
-  int newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
-  if (newsockfd < 0) { 
-    printf("ERROR on accept\n");
-    return -1;
-  }
-  bzero(buffer,256);
-  int n = read(newsockfd,buffer,255);
-  if (n < 0) {
-    printf("ERROR reading from socket\n");
-    return -1;
-  }
-  printf("Received command %s\n",buffer);
-
-  if (strcmp(buffer,"test") == 0) {
-    n = write_buffer(newsockfd,"Test OK");
-  }
-  else if (strcmp(buffer,"stop") == 0) {
-    n = write_buffer(newsockfd,"Daemon stopping.");
-    return -1;
-  }
-  else {
-    n = write_buffer(newsockfd,"Invalid command sent to server.");
-  }
-  if (n < 0) {
-    printf("ERROR writing to socket\n");
-    return -1;
-  }
 }
 
 int start()
@@ -207,9 +136,110 @@ int start()
     printf("Binding error %i. Are you running as root?\n",result);
   }
 
+  //Set up loop for events
+  T_STATE states[MAX_CONNECTIONS];
+  int new_connection = 0;
   int command_result = 0;
   while(command_result > -1) {
-    command_result = daemon_command(sockfd,clilen,cli_addr,buffer);
+    listen(sockfd,2);
+    clilen = sizeof(cli_addr);
+    newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
+    if (newsockfd < 0) {
+      printf("ERROR on accept\n");
+      command_result = -1;
+    }
+    bzero(buffer,256);
+    n = read(newsockfd,buffer,255);
+    if (n < 0) {
+      printf("ERROR reading from socket\n");
+      command_result = -1;
+    }
+    printf("Received command %s\n",buffer);
+
+    char *message = buffer;
+    char *argument = strsep(&message," ");
+
+    if (strcmp(argument,"test") == 0) {
+      n = write_buffer(newsockfd,"Test OK");
+    }
+    else if (strcmp(argument,"stop") == 0) {
+      n = write_buffer(newsockfd,"Daemon stopping.");
+      command_result = -1;
+    }
+    else if (strcmp(argument,"receive") == 0) {
+      char *interface_id = strsep(&message," ");
+      if (interface_id == NULL) {
+        write_buffer(newsockfd,"No interface id provided.");
+      } else {
+        T_STATE *current_state = NULL;
+        int i;
+        for (i = 0; i < MAX_CONNECTIONS; i++) {
+          if (strcmp(states[i].interface_id,interface_id) == 0) {
+            current_state = &states[i];
+            printf("Found previous state for identifier %s\n",interface_id);
+            break;
+          }
+        }
+        if (current_state == NULL) {
+          current_state = &states[new_connection++];
+          strcpy(current_state->interface_id, interface_id);
+          printf("Creating new state for identifier %s\n",interface_id);
+        }
+
+        argument = strsep(&message," ");
+        if (argument == NULL) {
+          write_buffer(newsockfd,"No message sent to receive.");
+        } else if (strcmp(argument,"request") == 0) {
+          char *address = strsep(&message," ");
+          if (address == NULL) {
+            write_buffer(newsockfd,"Address not provided for request.");
+          } else {
+            strcpy(current_state->contract.address, address);
+            evaluate_request(&current_state->contract);        
+            current_state->status = REQUEST;
+            link_interface.send_propose(current_state->interface_id, current_state->contract);
+            write_buffer(newsockfd,"Executed receive_request.");
+          }
+        } else if (strcmp(argument,"propose") == 0) {
+          argument = strsep(&message," ");
+          int64_t price;
+          if (argument == NULL) {
+            write_buffer(newsockfd,"No price sent in propose.");
+          } else {
+            price = (int64_t)strtol(argument,NULL,10);
+          }
+          current_state->status = PROPOSE;
+          current_state->contract.price = 5;
+          link_interface.send_propose(current_state->interface_id, current_state->contract);
+          write_buffer(newsockfd,"Executed receive_propose.");
+        } else if (strcmp(argument,"accept") == 0) {
+          current_state->status = ACCEPT;
+          current_state->contract.price = 5;
+          link_interface.send_propose(current_state->interface_id, current_state->contract);
+          write_buffer(newsockfd,"Executed receive_accept.");
+        } else if (strcmp(argument,"reject") == 0) {
+          current_state->status = REJECT;
+          current_state->contract.price = 5;
+          link_interface.send_propose(current_state->interface_id, current_state->contract);
+          write_buffer(newsockfd,"Executed receive_reject.");
+        } else if (strcmp(argument,"begin") == 0) {
+          current_state->status = BEGIN;
+          current_state->contract.price = 5;
+          link_interface.send_propose(current_state->interface_id, current_state->contract);
+          write_buffer(newsockfd,"Executed receive_begin.");
+        } else {
+          write_buffer(newsockfd,"Invalid message type.");
+        }
+      }
+    }
+    else {
+      n = write_buffer(newsockfd,"Invalid command sent to server.");
+    }
+
+    if (n < 0) {
+      printf("ERROR writing to socket\n");
+      command_result = -1;
+    }
   }
 
   close(newsockfd);

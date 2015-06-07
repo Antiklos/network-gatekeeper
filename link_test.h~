@@ -10,16 +10,16 @@ T_LINK_INTERFACE link_test_interface();
 
 void link_test_init();
 
-void send_request_test();
+void send_request_test(char interface_id[MAX_IDENTIFIER_LEN]);
 
-void send_propose_test();
+void send_propose_test(char interface_id[MAX_IDENTIFIER_LEN],T_CONTRACT contract);
 
-void send_accept_test();
+void send_accept_test(char interface_id[MAX_IDENTIFIER_LEN]);
 
-void send_reject_test();
+void send_reject_test(char interface_id[MAX_IDENTIFIER_LEN]);
 
-void send_begin_test();
+void send_begin_test(char interface_id[MAX_IDENTIFIER_LEN]);
 
-void link_stop_destroy();
+void link_test_destroy();
 
 #endif

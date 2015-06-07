@@ -5,20 +5,35 @@
 #define NETWORK_INTERFACES_NUMBER 1
 #define PAYMENT_INTERFACES_NUMBER 1
 
-#define INPUT_RECEIVE_REQUEST 0
-#define INPUT_RECEIVE_PROPOSE 1
-#define INPUT_RECEIVE_ACCEPT 2
-#define INPUT_RECEIVE_REJECT 3
-#define INPUT_RECEIVE_BEGIN 4
-#define INPUT_RECEIVE_STOP 5
-#define INPUT_COUNT_PACKETS 6
-#define INPUT_RECEIVE_PAYMENT 7
+#define REQUEST 0
+#define PROPOSE 1
+#define ACCEPT 2
+#define REJECT 3
+#define BEGIN 4
+#define STOP 5
+#define COUNT_PACKETS 6
+#define PAYMENT 7
+
+#define MAX_CONNECTIONS 4
+#define MAX_IDENTIFIER_LEN 256
+#define MAX_ADDRESS_LEN 256
 
 #define SOCK_PATH "/var/run/network_market.sock"
 #define LOG_PATH "/var/log/network_market.log"
 
 #ifndef MAIN_H
 #define MAIN_H
+
+typedef struct S_CONTRACT {
+  char address[MAX_ADDRESS_LEN];
+  int64_t price;
+} T_CONTRACT;
+
+typedef struct S_STATE {
+  char interface_id[MAX_IDENTIFIER_LEN];
+  int status;
+  T_CONTRACT contract;
+} T_STATE;
 
 typedef struct S_CONFIG {
   int link_interface;
@@ -29,11 +44,11 @@ typedef struct S_CONFIG {
 typedef struct S_LINK_INTERFACE {
   int identifier;
   void (*link_init)();
-  void (*send_request)();
-  void (*send_propose)();
-  void (*send_accept)();
-  void (*send_reject)();
-  void (*send_begin)();
+  void (*send_request)(char *interface_id);
+  void (*send_propose)(char *interface_id, T_CONTRACT contract);
+  void (*send_accept)(char *interface_id);
+  void (*send_reject)(char *interface_id);
+  void (*send_begin)(char *interface_id);
   void (*send_stop)();
   void (*link_destroy)();
 } T_LINK_INTERFACE;
@@ -51,8 +66,6 @@ typedef struct S_PAYMENT_INTERFACE {
   void (*send_payment)();
   void (*payment_destroy)();
 } T_PAYMENT_INTERFACE;
-
-static bool input_loop();
 
 static T_CONFIG read_config();
 
