@@ -5,14 +5,15 @@
 #define NETWORK_INTERFACES_NUMBER 1
 #define PAYMENT_INTERFACES_NUMBER 1
 
-#define REQUEST 0
-#define PROPOSE 1
-#define ACCEPT 2
-#define REJECT 3
-#define BEGIN 4
-#define STOP 5
-#define COUNT_PACKETS 6
-#define PAYMENT 7
+#define DEFAULT 0
+#define REQUEST 1
+#define PROPOSE 2
+#define ACCEPT 3
+#define REJECT 4
+#define BEGIN 5
+#define STOP 6
+#define COUNT_PACKETS 7
+#define PAYMENT 8
 
 #define MAX_CONNECTIONS 4
 #define MAX_IDENTIFIER_LEN 256
@@ -24,15 +25,11 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-typedef struct S_CONTRACT {
-  char address[MAX_ADDRESS_LEN];
-  int64_t price;
-} T_CONTRACT;
-
 typedef struct S_STATE {
   char interface_id[MAX_IDENTIFIER_LEN];
   int status;
-  T_CONTRACT contract;
+  char address[MAX_ADDRESS_LEN];
+  int64_t price;
 } T_STATE;
 
 typedef struct S_CONFIG {
@@ -44,10 +41,10 @@ typedef struct S_CONFIG {
 typedef struct S_LINK_INTERFACE {
   int identifier;
   void (*link_init)();
-  void (*send_request)(char *interface_id);
-  void (*send_propose)(char *interface_id, T_CONTRACT contract);
+  void (*send_request)(char *interface_id, char *address);
+  void (*send_propose)(char *interface_id, int64_t price);
   void (*send_accept)(char *interface_id);
-  void (*send_reject)(char *interface_id);
+  void (*send_reject)(char *interface_id, int64_t price);
   void (*send_begin)(char *interface_id);
   void (*send_stop)();
   void (*link_destroy)();
@@ -71,29 +68,7 @@ static T_CONFIG read_config();
 
 static int write_buffer(int sockfd, const char* message);
 int send_cli_message();
-
-// Link Interface
-
-void receive_request();
-
-void receive_propose();
-
-void receive_accept();
-
-void receive_reject();
-
-void receive_begin();
-
-void receive_stop();
-
-// Network Interface
-
-void count_packets(int count);
-
-// Payment Interface
-
-void receive_payment(int amount);
-
-// User Interface
+static T_STATE* find_state(T_STATE states[], int *new_connection, char *interface_id);
 
 #endif
+

@@ -7,17 +7,19 @@ To test server: ./main server test
 To test receipt of a certain message from the link layer: ./main server "[message]"
   This will write the message to the socket that the server is listening on.
 
-Example messages:
+Message formats:
 
-receive request (interface_id) (address)
-receive propose (interface_id) (address) (price)
-receive accept (interface_id)
-receive reject (interface_id) (price)
-receive begin (interface_id)
+receive (interface_id) request (address)
+receive (interface_id) propose (price)
+receive (interface_id) accept
+receive (interface_id) reject (price)
+receive (interface_id) begin
+
+Example: "receive 1234 propose 45"
 
 Definitions:
 
-interface_id: This is a string of max length 256 that identifies the link level interface the message came in from
+interface_id: This is a string that identifies the link level interface the message came in from
 address: This is a string that identifies the network level address messages will be sent to
   For example, if the network interface is IPv4, an example address could be 192.168.10.44
 price: This is the price being negotiated

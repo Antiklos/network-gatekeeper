@@ -18,24 +18,24 @@ void link_test_init() {
   printf("Executing link_test_init\n");
 }
 
-void send_request_test(char *interface_id) {
-  printf("Executing send_request_test\n");
+void send_request_test(char *interface_id, char *address) {
+  printf("Executing send_request_test on interface %s for address %s\n", interface_id, address);
 }
 
-void send_propose_test(char *interface_id, T_CONTRACT contract) {
-  printf("Executing send_propose_test to address %s with price %i\n", contract.address, (int)contract.price);
+void send_propose_test(char *interface_id, int64_t price) {
+  printf("Executing send_propose_test with price %i\n", (int)price);
 }
 
 void send_accept_test(char *interface_id) {
-  printf("Executing send_accept_test\n");
+  printf("Executing send_accept_test on interface %s\n", interface_id);
 }
 
-void send_reject_test(char *interface_id) {
-  printf("Executing send_reject_test\n");
+void send_reject_test(char *interface_id, int64_t price) {
+  printf("Executing send_reject_test with price %i\n", (int)price);
 }
 
 void send_begin_test(char *interface_id) {
-  printf("Executing send_begin_test\n");
+  printf("Executing send_begin_test on interface %s\n", interface_id);
 }
 
 void link_test_destroy() {

@@ -53,6 +53,28 @@ static int write_buffer(int sockfd, const char* message)
   return write(sockfd,message,strlen(message));
 }
 
+static T_STATE* find_state(T_STATE states[], int *new_connection, char *interface_id) {
+  T_STATE *current_state = NULL;
+  int i;
+  for (i = 0; i < MAX_CONNECTIONS; i++) {
+    if (strcmp(states[i].interface_id,interface_id) == 0) {
+      current_state = &states[i];
+      printf("Found previous state for identifier %s\n",interface_id);
+      break;
+    }
+  }
+  if (current_state == NULL) {
+    current_state = &states[*new_connection++];
+    strcpy(current_state->interface_id, interface_id);
+    current_state->status = DEFAULT;
+    current_state->price = 0;
+    bzero(current_state->address, MAX_ADDRESS_LEN);
+    printf("Creating new state for identifier %s\n",interface_id);
+  }
+
+  return current_state;
+}
+
 int start()
 {
   //Create interface arrays
@@ -166,69 +188,78 @@ int start()
       n = write_buffer(newsockfd,"Daemon stopping.");
       command_result = -1;
     }
+    else if (strcmp(argument,"send") == 0) {
+      char *interface_id = strsep(&message," ");
+      char *address = strsep(&message," ");
+      if (interface_id == NULL) {
+        n = write_buffer(newsockfd,"No interface id provided.");
+      } else if (address == NULL) {
+        n = write_buffer(newsockfd,"No address provided.");
+      } else {
+        T_STATE *current_state = find_state(states, &new_connection, interface_id);
+        if (current_state->status == DEFAULT) {
+          strcpy(current_state->address, address);
+          link_interface.send_request(interface_id, address);
+          n = write_buffer(newsockfd,"Sending request");
+        } else {
+          n = write_buffer(newsockfd,"Error: Cannot send request on this interface. Interface already exists.");
+        }
+      }
+    }
     else if (strcmp(argument,"receive") == 0) {
       char *interface_id = strsep(&message," ");
       if (interface_id == NULL) {
-        write_buffer(newsockfd,"No interface id provided.");
+        n = write_buffer(newsockfd,"No interface id provided.");
       } else {
-        T_STATE *current_state = NULL;
-        int i;
-        for (i = 0; i < MAX_CONNECTIONS; i++) {
-          if (strcmp(states[i].interface_id,interface_id) == 0) {
-            current_state = &states[i];
-            printf("Found previous state for identifier %s\n",interface_id);
-            break;
-          }
-        }
-        if (current_state == NULL) {
-          current_state = &states[new_connection++];
-          strcpy(current_state->interface_id, interface_id);
-          printf("Creating new state for identifier %s\n",interface_id);
-        }
+        T_STATE *current_state = find_state(states, &new_connection, interface_id);
 
         argument = strsep(&message," ");
         if (argument == NULL) {
-          write_buffer(newsockfd,"No message sent to receive.");
+          n = write_buffer(newsockfd,"No message sent to receive.");
         } else if (strcmp(argument,"request") == 0) {
           char *address = strsep(&message," ");
           if (address == NULL) {
-            write_buffer(newsockfd,"Address not provided for request.");
+            n = write_buffer(newsockfd,"Address not provided for request.");
+          } else if (current_state->status > REQUEST) {
+            n = write_buffer(newsockfd,"Cannot process request. Contract already in progress.");
           } else {
-            strcpy(current_state->contract.address, address);
-            evaluate_request(&current_state->contract);        
+            strcpy(current_state->address, address);
+            evaluate_request(current_state);        
             current_state->status = REQUEST;
-            link_interface.send_propose(current_state->interface_id, current_state->contract);
-            write_buffer(newsockfd,"Executed receive_request.");
+            link_interface.send_propose(current_state->interface_id, current_state->price);
+            n = write_buffer(newsockfd,"Executed receive_request.");
           }
         } else if (strcmp(argument,"propose") == 0) {
-          argument = strsep(&message," ");
-          int64_t price;
-          if (argument == NULL) {
-            write_buffer(newsockfd,"No price sent in propose.");
+          char *price_arg = strsep(&message," ");
+          if (price_arg == NULL) {
+            n = write_buffer(newsockfd,"Price not provided for propose.");
           } else {
-            price = (int64_t)strtol(argument,NULL,10);
+            current_state->price = (int64_t)strtol(price_arg,NULL,10);
+            if (evaluate_propose(current_state)) {
+              link_interface.send_accept(current_state->interface_id);
+            } else {
+              link_interface.send_reject(current_state->interface_id, current_state->price);
+            }
+            current_state->status = PROPOSE;
+            n = write_buffer(newsockfd,"Executed receive_propose.");
           }
-          current_state->status = PROPOSE;
-          current_state->contract.price = 5;
-          link_interface.send_propose(current_state->interface_id, current_state->contract);
-          write_buffer(newsockfd,"Executed receive_propose.");
         } else if (strcmp(argument,"accept") == 0) {
           current_state->status = ACCEPT;
-          current_state->contract.price = 5;
-          link_interface.send_propose(current_state->interface_id, current_state->contract);
-          write_buffer(newsockfd,"Executed receive_accept.");
+          //current_state->contract.price = 5;
+          //link_interface.send_propose(current_state->interface_id, current_state->contract);
+          n = write_buffer(newsockfd,"Executed receive_accept.");
         } else if (strcmp(argument,"reject") == 0) {
           current_state->status = REJECT;
-          current_state->contract.price = 5;
-          link_interface.send_propose(current_state->interface_id, current_state->contract);
-          write_buffer(newsockfd,"Executed receive_reject.");
+          //current_state->contract.price = 5;
+          //link_interface.send_propose(current_state->interface_id, current_state->contract);
+          n = write_buffer(newsockfd,"Executed receive_reject.");
         } else if (strcmp(argument,"begin") == 0) {
           current_state->status = BEGIN;
-          current_state->contract.price = 5;
-          link_interface.send_propose(current_state->interface_id, current_state->contract);
-          write_buffer(newsockfd,"Executed receive_begin.");
+          //current_state->contract.price = 5;
+          //link_interface.send_propose(current_state->interface_id, current_state->contract);
+          n = write_buffer(newsockfd,"Executed receive_begin.");
         } else {
-          write_buffer(newsockfd,"Invalid message type.");
+          n = write_buffer(newsockfd,"Invalid message type.");
         }
       }
     }
@@ -312,44 +343,5 @@ main(int args, char *argv[])
     printf("Invalid argument.\n");
     return 1;
   }
-}
-
-// Link Interface
-
-void receive_request() {
-  printf("Executing receive_request\n");
-}
-
-void receive_propose() {
-  printf("Executing receive_propose\n");
-}
-
-void receive_accept() {
-  printf("Executing receive_accept\n");
-}
-
-void receive_reject() {
-  printf("Executing receive_reject\n");
-}
-
-void receive_begin() {
-  printf("Executing receive_begin\n");
-}
-
-void receive_stop() {
-  printf("Executing receive_stop\n");
-}
-
-// Network Interface
-
-void count_packets(int count) {
-  printf("Executing count_packets with %d packets having been counted.\n", count);
-}
-
-
-// Payment Interface
-
-void receive_payment(int amount) {
-  printf("Executing receive_payment with %d having been received.\n", amount);
 }
 
