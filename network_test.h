@@ -10,7 +10,7 @@ T_NETWORK_INTERFACE network_test_interface();
 
 void network_test_init();
 
-void open_interface_test();
+void gate_interface_test(char *interface_id, char *address, bool open);
 
 void network_test_destroy();
 

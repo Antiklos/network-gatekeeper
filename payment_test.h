@@ -10,7 +10,7 @@ T_PAYMENT_INTERFACE payment_test_interface();
 
 void payment_test_init();
 
-void send_payment_test();
+void send_payment_test(char *interface_id, char *address, int64_t price);
 
 void payment_test_destroy();
 

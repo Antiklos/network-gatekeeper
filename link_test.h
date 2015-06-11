@@ -12,13 +12,13 @@ void link_test_init();
 
 void send_request_test(char *interface_id, char *address);
 
-void send_propose_test(char *interface_id, int64_t price);
+void send_propose_test(char *interface_id, char *address, int64_t price);
 
-void send_accept_test(char *interface_id);
+void send_accept_test(char *interface_id, char *address);
 
-void send_reject_test(char *interface_id, int64_t price);
+void send_reject_test(char *interface_id, char *address, int64_t price);
 
-void send_begin_test(char *interface_id);
+void send_begin_test(char *interface_id, char *address);
 
 void link_test_destroy();
 

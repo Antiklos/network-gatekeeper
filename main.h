@@ -30,6 +30,10 @@ typedef struct S_STATE {
   int status;
   char address[MAX_ADDRESS_LEN];
   int64_t price;
+  long int payment_advance;
+  time_t time_expiration;
+  int64_t payment_sent;
+  long int packets_delivered;
 } T_STATE;
 
 typedef struct S_CONFIG {
@@ -42,10 +46,10 @@ typedef struct S_LINK_INTERFACE {
   int identifier;
   void (*link_init)();
   void (*send_request)(char *interface_id, char *address);
-  void (*send_propose)(char *interface_id, int64_t price);
-  void (*send_accept)(char *interface_id);
-  void (*send_reject)(char *interface_id, int64_t price);
-  void (*send_begin)(char *interface_id);
+  void (*send_propose)(char *interface_id, char *address, int64_t price);
+  void (*send_accept)(char *interface_id, char *address);
+  void (*send_reject)(char *interface_id, char *address, int64_t price);
+  void (*send_begin)(char *interface_id, char *address);
   void (*send_stop)();
   void (*link_destroy)();
 } T_LINK_INTERFACE;
@@ -53,14 +57,14 @@ typedef struct S_LINK_INTERFACE {
 typedef struct S_NETWORK_INTERFACE {
   int identifier;
   void (*network_init)();
-  void (*open_interface)();
+  void (*gate_interface)(char *interface_id, char *address, bool open);
   void (*network_destroy)();
 } T_NETWORK_INTERFACE;
 
 typedef struct S_PAYMENT_INTERFACE {
   int identifier;
   void (*payment_init)();
-  void (*send_payment)();
+  void (*send_payment)(char *interface_id, char *address, int64_t price);
   void (*payment_destroy)();
 } T_PAYMENT_INTERFACE;
 
@@ -68,7 +72,7 @@ static T_CONFIG read_config();
 
 static int write_buffer(int sockfd, const char* message);
 int send_cli_message();
-static T_STATE* find_state(T_STATE states[], int *new_connection, char *interface_id);
+static T_STATE* find_state(T_STATE states[], int *new_connection, char *interface_id, char *address);
 
 #endif
 

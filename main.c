@@ -13,6 +13,7 @@
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <time.h>
 
 #include "main.h"
 #include "link_test.c"
@@ -53,23 +54,26 @@ static int write_buffer(int sockfd, const char* message)
   return write(sockfd,message,strlen(message));
 }
 
-static T_STATE* find_state(T_STATE states[], int *new_connection, char *interface_id) {
+static T_STATE* find_state(T_STATE states[], int *new_connection, char *interface_id, char *address) {
   T_STATE *current_state = NULL;
   int i;
   for (i = 0; i < MAX_CONNECTIONS; i++) {
-    if (strcmp(states[i].interface_id,interface_id) == 0) {
+    if (strcmp(states[i].interface_id,interface_id) == 0 && strcmp(states[i].address,address) == 0) {
       current_state = &states[i];
-      printf("Found previous state for identifier %s\n",interface_id);
-      break;
+      printf("Found previous state for identifier %s and address %s\n",interface_id, address);
+      //break;
     }
   }
   if (current_state == NULL) {
-    current_state = &states[*new_connection++];
+    current_state = &states[*new_connection];
+    *new_connection = *new_connection + 1;
     strcpy(current_state->interface_id, interface_id);
+    strcpy(current_state->address, address);
     current_state->status = DEFAULT;
     current_state->price = 0;
-    bzero(current_state->address, MAX_ADDRESS_LEN);
-    printf("Creating new state for identifier %s\n",interface_id);
+    current_state->payment_sent = 0;
+    current_state->packets_delivered = 0;
+    printf("Creating new state for identifier %s and address %s\n",interface_id, address);
   }
 
   return current_state;
@@ -196,68 +200,124 @@ int start()
       } else if (address == NULL) {
         n = write_buffer(newsockfd,"No address provided.");
       } else {
-        T_STATE *current_state = find_state(states, &new_connection, interface_id);
-        if (current_state->status == DEFAULT) {
-          strcpy(current_state->address, address);
-          link_interface.send_request(interface_id, address);
-          n = write_buffer(newsockfd,"Sending request");
-        } else {
-          n = write_buffer(newsockfd,"Error: Cannot send request on this interface. Interface already exists.");
-        }
+        T_STATE *current_state = find_state(states, &new_connection, interface_id, address);
+        current_state->status = REQUEST;
+        link_interface.send_request(interface_id, address);
+        n = write_buffer(newsockfd,"Sending request");
       }
     }
     else if (strcmp(argument,"receive") == 0) {
       char *interface_id = strsep(&message," ");
+      char *address = strsep(&message," ");
       if (interface_id == NULL) {
         n = write_buffer(newsockfd,"No interface id provided.");
+      } else if (address == NULL) {
+        n = write_buffer(newsockfd,"No address provided.");
       } else {
-        T_STATE *current_state = find_state(states, &new_connection, interface_id);
+        T_STATE *current_state = find_state(states, &new_connection, interface_id, address);
 
         argument = strsep(&message," ");
         if (argument == NULL) {
           n = write_buffer(newsockfd,"No message sent to receive.");
         } else if (strcmp(argument,"request") == 0) {
-          char *address = strsep(&message," ");
-          if (address == NULL) {
-            n = write_buffer(newsockfd,"Address not provided for request.");
-          } else if (current_state->status > REQUEST) {
+          if (current_state->status != DEFAULT) {
             n = write_buffer(newsockfd,"Cannot process request. Contract already in progress.");
           } else {
-            strcpy(current_state->address, address);
-            evaluate_request(current_state);        
-            current_state->status = REQUEST;
-            link_interface.send_propose(current_state->interface_id, current_state->price);
+            evaluate_request(current_state);
+            current_state->status = PROPOSE;
+            link_interface.send_propose(current_state->interface_id, current_state->address, current_state->price);
             n = write_buffer(newsockfd,"Executed receive_request.");
           }
         } else if (strcmp(argument,"propose") == 0) {
           char *price_arg = strsep(&message," ");
+          char *payment_advance = strsep(&message," ");
+          char *time_expiration = strsep(&message," ");
           if (price_arg == NULL) {
             n = write_buffer(newsockfd,"Price not provided for propose.");
+          } else if (payment_advance == NULL) {
+            n = write_buffer(newsockfd,"Payment advance not provided for propose.");
+          } else if (time_expiration == NULL) {
+            n = write_buffer(newsockfd,"Time expiration not provided for propose.");
+          } else if (current_state->status != REQUEST && current_state->status != REJECT) {
+            n = write_buffer(newsockfd,"Not ready to receive propose.");
           } else {
-            current_state->price = (int64_t)strtol(price_arg,NULL,10);
+            current_state->price = (int64_t)strtol(price_arg,NULL,20);
+            current_state->payment_advance = (int64_t)strtol(payment_advance,NULL,20);
+            current_state->time_expiration = (int64_t)strtol(time_expiration,NULL,20);
             if (evaluate_propose(current_state)) {
-              link_interface.send_accept(current_state->interface_id);
+              current_state->status = ACCEPT;
+              link_interface.send_accept(current_state->interface_id, current_state->address);
+              payment_interface.send_payment(current_state->interface_id, current_state->address, current_state->price);
             } else {
-              link_interface.send_reject(current_state->interface_id, current_state->price);
+              current_state->status = REJECT;
+              link_interface.send_reject(current_state->interface_id, current_state->address, current_state->price);
             }
-            current_state->status = PROPOSE;
             n = write_buffer(newsockfd,"Executed receive_propose.");
           }
         } else if (strcmp(argument,"accept") == 0) {
-          current_state->status = ACCEPT;
-          //current_state->contract.price = 5;
-          //link_interface.send_propose(current_state->interface_id, current_state->contract);
-          n = write_buffer(newsockfd,"Executed receive_accept.");
+          if (current_state->status != PROPOSE) {
+            n = write_buffer(newsockfd,"Not ready to receive accept.");
+          } else {
+            current_state->status = PAYMENT;
+            n = write_buffer(newsockfd,"Executed receive_accept.");
+          }
         } else if (strcmp(argument,"reject") == 0) {
-          current_state->status = REJECT;
-          //current_state->contract.price = 5;
-          //link_interface.send_propose(current_state->interface_id, current_state->contract);
-          n = write_buffer(newsockfd,"Executed receive_reject.");
+          char *price_arg = strsep(&message," ");
+          char *payment_advance = strsep(&message," ");
+          char *time_expiration = strsep(&message," ");
+          if (price_arg == NULL) {
+            n = write_buffer(newsockfd,"Price not provided for reject.");
+          } else if (payment_advance == NULL) {
+            n = write_buffer(newsockfd,"Payment advance not provided for propose.");
+          } else if (time_expiration == NULL) {
+            n = write_buffer(newsockfd,"Time expiration not provided for propose.");
+          } else if (current_state->status != PROPOSE) {
+            n = write_buffer(newsockfd,"Not ready to receive reject.");
+          } else {
+            current_state->price = (int64_t)strtol(price_arg,NULL,10);
+            current_state->payment_advance = (int64_t)strtol(payment_advance,NULL,20);
+            current_state->time_expiration = (int64_t)strtol(time_expiration,NULL,20);
+            evaluate_reject(current_state);
+            link_interface.send_propose(current_state->interface_id, current_state->address, current_state->price);
+            current_state->status = PROPOSE;
+            n = write_buffer(newsockfd,"Executed receive_reject.");
+          }
         } else if (strcmp(argument,"begin") == 0) {
-          current_state->status = BEGIN;
-          //current_state->contract.price = 5;
-          //link_interface.send_propose(current_state->interface_id, current_state->contract);
-          n = write_buffer(newsockfd,"Executed receive_begin.");
+          if (current_state->status != ACCEPT) {
+            n = write_buffer(newsockfd,"Not ready to receive begin.");
+          } else {
+            current_state->status = COUNT_PACKETS;
+            network_interface.gate_interface(current_state->interface_id, current_state->address, true);
+            n = write_buffer(newsockfd,"Executed receive_begin.");
+          }
+        } else if (strcmp(argument,"payment") == 0) {
+          char *price_arg = strsep(&message," ");
+          if (price_arg == NULL) {
+            n = write_buffer(newsockfd,"Price not provided for payment.");
+          } else if (current_state->status != PAYMENT) {
+            n = write_buffer(newsockfd,"Not ready to receive payment.");
+          } else {
+            current_state->payment_sent += (int64_t)strtol(price_arg,NULL,20);
+            if (deliver_service(current_state)) {
+              network_interface.gate_interface(current_state->interface_id, current_state->address, true);
+              current_state->status = BEGIN;
+              link_interface.send_begin(current_state->interface_id, current_state->address);
+            }
+            n = write_buffer(newsockfd,"Executed receive_payment.");
+          }
+        } else if (strcmp(argument,"count_packets") == 0) {
+          char *count = strsep(&message," ");
+          if (count == NULL) {
+            n = write_buffer(newsockfd,"Packet count not provided.");
+          } else if (current_state->status != BEGIN) {
+            n = write_buffer(newsockfd,"Not ready to count packets.");
+          } else {
+            current_state->packets_delivered = (long int)strtol(count,NULL,20);
+            if (!deliver_service(current_state)) {
+              network_interface.gate_interface(current_state->interface_id, current_state->address, false);
+            }
+            n = write_buffer(newsockfd,"Executed receive_count_packets.");
+          }
         } else {
           n = write_buffer(newsockfd,"Invalid message type.");
         }
