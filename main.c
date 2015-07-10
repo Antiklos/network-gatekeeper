@@ -202,8 +202,20 @@ int start(bool quiet)
         printf("No address provided.\n");
       } else {
         T_STATE *current_state = find_state(states, &new_connection, interface_id, address);
-        current_state->status = REQUEST;
-        link_interface.send_request(interface_id, address);
+
+        argument = strsep(&message," ");
+        if (argument == NULL) {
+          printf("No message sent to receive.\n");
+        } else if (strcmp(argument,"request") == 0) {
+          current_state->status = REQUEST;
+          link_interface.send_request(interface_id, address);
+        } else if (strcmp(argument,"stop") == 0) {
+          if (current_state->status != COUNT_PACKETS) {
+            printf("Not ready to stop contract.\n");
+          } else {
+            current_state->status = STOP;
+          }
+        }
       }
     }
     else if (strcmp(argument,"receive") == 0) {
@@ -294,7 +306,7 @@ int start(bool quiet)
           char *price_arg = strsep(&message," ");
           if (price_arg == NULL) {
             printf("Price not provided for payment.\n");
-          } else if (current_state->status != PAYMENT || current_state->status != BEGIN) {
+          } else if (current_state->status != PAYMENT && current_state->status != BEGIN) {
             printf("Not ready to receive payment.\n");
           } else {
             current_state->payment_sent += (int64_t)strtol(price_arg,NULL,10);
@@ -310,12 +322,18 @@ int start(bool quiet)
           char *count = strsep(&message," ");
           if (count == NULL) {
             printf("Packet count not provided.\n");
-          } else if (current_state->status != BEGIN || current_state->status != COUNT_PACKETS) {
+          } else if (current_state->status != BEGIN && current_state->status != COUNT_PACKETS && current_state->status != STOP) {
             printf("Not ready to count packets.\n");
           } else {
             current_state->packets_delivered = strtol(count,NULL,10);
             if (!deliver_service(current_state)) {
               network_interface.gate_interface(current_state->interface_id, current_state->address, false);
+            }
+
+            if (current_state->status == COUNT_PACKETS && renew_service(current_state)) {
+              int64_t payment = MAX_PAYMENT;
+              payment_interface.send_payment(current_state->interface_id, current_state->address, payment);
+              current_state->payment_sent += payment;
             }
           }
         } else {

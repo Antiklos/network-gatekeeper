@@ -19,7 +19,10 @@
 #define MAX_IDENTIFIER_LEN 256
 #define MAX_ADDRESS_LEN 256
 
-#define MAX_PAYMENT 100
+//The following three are assumptions for testing that should be eventually calculated dynamically
+#define MAX_PAYMENT 1000
+#define TIME_TO_TX_CONFIRM 5
+#define PACKET_THROUGHPUT 3
 
 #define SOCK_PATH "/var/run/network_market.sock"
 #define LOG_PATH "/var/log/network_market.log"

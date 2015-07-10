@@ -11,7 +11,8 @@ To test receipt of a certain message from the link layer: ./ngp server "[message
 
 Message formats:
 
-send (interface_id) (address)
+send (interface_id) (address) request
+send (interface_id) (address) stop
 receive (interface_id) (address) request
 receive (interface_id) (address) propose (price) (payment_advance) (time_expiration)
 receive (interface_id) (address) accept
@@ -25,7 +26,7 @@ Definitions:
 interface_id: This is a string that identifies the link level interface the message came in from
 address: This is a string that identifies the network level address messages will be sent to
   For example, if the network interface is IPv4, an example address could be 192.168.10.44
-price: This is the price being negotiated
+price: This is the price per packet being negotiated
 
 What each message means:
 
@@ -46,7 +47,6 @@ The state of each connection is tracked in the state struct. Here is a definitio
   long int payment_advance; This is the number of packets the client must prepay for before they will receive service. If the client fails to maintain this payment buffer, the server will stop delivering packets.
   int64_t payment_sent; This is the record of how much the client has sent in payment.
   long int packets_delivered; This is a record of how many packets the server has delivered.
-  long int packet_expiration;
   time_t time_expiration;
 
 Features to add in:
