@@ -19,6 +19,8 @@
 #define MAX_IDENTIFIER_LEN 256
 #define MAX_ADDRESS_LEN 256
 
+#define MAX_PAYMENT 100
+
 #define SOCK_PATH "/var/run/network_market.sock"
 #define LOG_PATH "/var/log/network_market.log"
 
@@ -46,9 +48,9 @@ typedef struct S_LINK_INTERFACE {
   int identifier;
   void (*link_init)();
   void (*send_request)(char *interface_id, char *address);
-  void (*send_propose)(char *interface_id, char *address, int64_t price);
+  void (*send_propose)(char *interface_id, char *address, int64_t price, long int payment_advance, time_t time_expiration);
   void (*send_accept)(char *interface_id, char *address);
-  void (*send_reject)(char *interface_id, char *address, int64_t price);
+  void (*send_reject)(char *interface_id, char *address, int64_t price, long int payment_advance, time_t time_expiration);
   void (*send_begin)(char *interface_id, char *address);
   void (*send_stop)();
   void (*link_destroy)();

@@ -1,12 +1,12 @@
-To compile: gcc main.c -o main -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -lglib-2.0
+To compile: gcc main.c -o ngp -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -lglib-2.0
 
-To start server: ./main start
+To start server: ./ngp start
 
-To test server: ./main server test
+To test server: ./ngp server test
 
-To stop server: ./main stop
+To stop server: ./ngp stop
 
-To test receipt of a certain message from the link layer: ./main server "[message]"
+To test receipt of a certain message from the link layer: ./ngp server "[message]"
   This will write the message to the socket that the server is listening on.
 
 Message formats:
@@ -48,3 +48,9 @@ The state of each connection is tracked in the state struct. Here is a definitio
   long int packets_delivered; This is a record of how many packets the server has delivered.
   long int packet_expiration;
   time_t time_expiration;
+
+Features to add in:
+- Smarter client behavior for making payments just in time
+- Smarter default client behavior for polling all interfaces and choosing the best deal
+- GUI
+

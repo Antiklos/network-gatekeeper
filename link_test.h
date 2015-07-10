@@ -12,11 +12,11 @@ void link_test_init();
 
 void send_request_test(char *interface_id, char *address);
 
-void send_propose_test(char *interface_id, char *address, int64_t price);
+void send_propose_test(char *interface_id, char *address, int64_t price, long int payment_advance, time_t time_expiration);
 
 void send_accept_test(char *interface_id, char *address);
 
-void send_reject_test(char *interface_id, char *address, int64_t price);
+void send_reject_test(char *interface_id, char *address, int64_t price, long int payment_advance, time_t time_expiration);
 
 void send_begin_test(char *interface_id, char *address);
 
