@@ -18,6 +18,7 @@
 #include "main.h"
 #include "link_test.c"
 #include "network_test.c"
+#include "network_ipv4.c"
 #include "payment_test.c"
 #include "contract.c"
 
