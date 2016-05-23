@@ -11,7 +11,8 @@ T_NETWORK_INTERFACE network_ipv4_interface() {
 }
 
 void network_ipv4_init() {
-  //Turn routing on but set up iptables to deny routing to all packets until gate_interface opens up addresses and interfaces
+  //Turn routing on but set up iptables to deny routing to all packets until gate_interface opens up specific addresses and interfaces
+  //Probably want to use DHCP
   //Also, find a way (spawn daemon? probably) to query iptables for packets passed through the open windows
 }
 

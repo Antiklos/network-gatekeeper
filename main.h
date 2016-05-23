@@ -24,14 +24,16 @@
 #define TIME_TO_TX_CONFIRM 5
 #define PACKET_THROUGHPUT 3
 
-#define SOCK_PATH "/var/run/network_market.sock"
-#define LOG_PATH "/var/log/network_market.log"
+#define SOCK_PATH "/var/run/network_gatekeeper.sock"
+#define LOG_PATH "/var/log/network_gatekeeper.log"
 
 #ifndef MAIN_H
 #define MAIN_H
 
 typedef struct S_STATE {
   char interface_id[MAX_IDENTIFIER_LEN];
+  int sock_in;
+  int sock_out;
   int status;
   char address[MAX_ADDRESS_LEN];
   int64_t price;

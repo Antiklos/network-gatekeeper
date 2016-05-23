@@ -1,13 +1,14 @@
+Dependencies: glib-2.0
 To compile: gcc main.c -o ngp -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -lglib-2.0
 
-To start server: ./ngp start
+To start daemon: ./ngp start
 
-To test server: ./ngp server test
+To test daemon: ./ngp server test
 
-To stop server: ./ngp stop
+To stop daemon: ./ngp stop
 
-To test receipt of a certain message from the link layer: ./ngp server "[message]"
-  This will write the message to the socket that the server is listening on.
+To test receipt of a certain message from the link: ./ngp server "[message]"
+  This will write the message to a socket that the server is listening on.
 
 Message formats:
 
@@ -23,8 +24,9 @@ Example: "receive 1234 propose 45"
 
 Definitions:
 
-interface_id: This is a string that identifies the link level interface the message came in from
-address: This is a string that identifies the network level address messages will be sent to
+interface_id: This is a string that identifies the ngp link the message came in from. 
+  For example, when the link is made using UDP, the interface_id will be an IP address.
+address: This is a string that identifies the network level address destination that the traffic will be sent to as part of the contract with the client.
   For example, if the network interface is IPv4, an example address could be 192.168.10.44
 price: This is the price per packet being negotiated
 
@@ -50,7 +52,10 @@ The state of each connection is tracked in the state struct. Here is a definitio
   time_t time_expiration;
 
 Features to add in:
+- Implement the link system using inet sockets instead of dummy messages to the terminal
+- Implement the auto construction and destruction of an ipv4 network in the network_ipv4 class
+- Create a new payment class to implement sending and receiving bitcoin
 - Smarter client behavior for making payments just in time
 - Smarter default client behavior for polling all interfaces and choosing the best deal
-- GUI
+- GUI for config and other things
 

@@ -145,38 +145,95 @@ int start(bool quiet)
     close(logfile_fileno);
   }
 
-  //Set up socket for communication
-  int sockfd, newsockfd;
+  int cli_sockfd, link_sockfd, current_sockfd;
+  //Set up socket for CLI communication
   socklen_t clilen;
   char buffer[256];
   struct sockaddr_un serv_addr, cli_addr;
   int n;
-  sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
-  if (sockfd < 0) { 
+  cli_sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+  if (cli_sockfd < 0) { 
     printf("ERROR opening socket\n");
   }
   serv_addr.sun_family = AF_UNIX;
   strncpy(serv_addr.sun_path, SOCK_PATH,strlen(SOCK_PATH));
-  int result = bind(sockfd, (struct sockaddr *) &serv_addr, strlen(SOCK_PATH) + 2);
+  int result = bind(cli_sockfd, (struct sockaddr *) &serv_addr, strlen(SOCK_PATH) + 2);
   if (result < 0) {
     printf("Binding error %i. Are you running as root?\n",result);
     return 1;
   }
+
+  //Set up socket for INET communication
+  //socklen_t clilen;
+  //char buffer[256];
+  //struct sockaddr_un serv_addr, cli_addr;
+  //int n;
+  //link_sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+  //if (link_sockfd < 0) { 
+  //  printf("ERROR opening socket\n");
+  //}
+  //serv_addr.sun_family = AF_UNIX;
+  //strncpy(serv_addr.sun_path, SOCK_PATH,strlen(SOCK_PATH));
+  //int result = bind(link_sockfd, (struct sockaddr *) &serv_addr, strlen(SOCK_PATH) + 2);
+  //if (result < 0) {
+  //  printf("Binding error %i. Are you running as root?\n",result);
+  //  return 1;
+  //}
 
   //Set up loop for events
   T_STATE states[MAX_CONNECTIONS];
   int new_connection = 0;
   int command_result = 0;
   while(command_result > -1) {
-    listen(sockfd,2);
+    listen(cli_sockfd,2);
     clilen = sizeof(cli_addr);
-    newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
-    if (newsockfd < 0) {
+
+    //loop through all available sockets for any incoming messages
+    fd_set readfds;
+    int maxfd, fd;
+    unsigned int i;
+    int status;
+    int fds[new_connection + 1];
+
+    for (i = 0; i < new_connection; i++) {
+      fds[i] = atoi(states[i].interface_id);
+    }
+    fds[new_connection] = cli_sockfd;
+
+    FD_ZERO(&readfds);
+    maxfd = -1;
+    for (i = 0; i < new_connection + 1; i++) {
+        FD_SET(fds[i], &readfds);
+        if (fds[i] > maxfd) {
+            maxfd = fds[i];
+        }
+    }
+    status = select(maxfd + 1, &readfds, NULL, NULL, NULL);
+    if (status < 0) {
+        printf("ERROR trying to read from an invalid socket\n");
+        command_result = -1;
+    }
+    fd = -1;
+    for (i = 0; i < new_connection + 1; i++)
+        if (FD_ISSET(fds[i], &readfds)) {
+            fd = fds[i];
+            break;
+        }
+    if (fd == -1) {
+      printf("ERROR trying to read from an invalid socket\n");
+      command_result = -1;
+    }
+    else {
+      current_sockfd = accept(fd, (struct sockaddr *) &cli_addr, &clilen);
+    }
+
+    //now operate on the message that was found
+    if (current_sockfd < 0) {
       printf("ERROR on accept\n");
       command_result = -1;
     }
     bzero(buffer,256);
-    n = read(newsockfd,buffer,255);
+    n = read(current_sockfd,buffer,255);
     if (n < 0) {
       printf("ERROR reading from socket\n");
       command_result = -1;
@@ -352,8 +409,8 @@ int start(bool quiet)
     }
   }
 
-  close(newsockfd);
-  close(sockfd);
+  close(current_sockfd);
+  close(cli_sockfd);
   if (unlink(SOCK_PATH) < 0) {
     printf("ERROR deleting socket\n");
   }

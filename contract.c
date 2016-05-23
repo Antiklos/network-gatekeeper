@@ -15,7 +15,7 @@ bool deliver_service(T_STATE *state) {
 bool renew_service(T_STATE *state) {
   time_t current_time;
   time(&current_time);
-  if (state->time_expiration < current_time + TIME_TO_TX_CONFIRM) return false;
+  if (state->time_expiration > current_time + TIME_TO_TX_CONFIRM) return false;
 
   long int expected_packets_delivered = state->packets_delivered + (TIME_TO_TX_CONFIRM*PACKET_THROUGHPUT);
   long int packets_outstanding = state->payment_advance + expected_packets_delivered;
