@@ -19,7 +19,15 @@ void link_udp_init() {
 }
 
 void send_request_udp(char *interface_id, char *address) {
-  printf("Executing send_request_test on interface %s for address %s\n", interface_id, address);
+  struct sockaddr_in serv_addr;
+  int sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  serv_addr.sin_family = AF_INET;
+  serv_addr.sin_port = htons(10325);
+  inet_aton("127.0.0.1" , &serv_addr.sin_addr);
+  int result = sendto(sockfd, "test", 4, 0, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
+  if (result < 0) {
+    printf("send_request_udp failed\n");
+  }
 }
 
 void send_propose_udp(char *interface_id, char *address, int64_t price, long int payment_advance, time_t time_expiration) {

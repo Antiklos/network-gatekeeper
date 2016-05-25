@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define LINK_INTERFACES_NUMBER 1
+#define LINK_INTERFACES_NUMBER 2
 #define NETWORK_INTERFACES_NUMBER 1
 #define PAYMENT_INTERFACES_NUMBER 1
 

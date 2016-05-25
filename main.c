@@ -12,11 +12,14 @@
 #include <unistd.h>
 #include <sys/types.h> 
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <sys/un.h>
 #include <time.h>
 
 #include "main.h"
 #include "link_test.c"
+#include "link_udp.c"
 #include "network_test.c"
 #include "network_ipv4.c"
 #include "payment_test.c"
@@ -89,6 +92,7 @@ int start(bool quiet)
 
   //Populate interface arrays
   link_interfaces[LINK_INTERFACE_TEST_IDENTIFIER] = link_test_interface();
+  link_interfaces[LINK_INTERFACE_UDP_IDENTIFIER] = link_udp_interface();
   network_interfaces[NETWORK_INTERFACE_TEST_IDENTIFIER] = network_test_interface();
   payment_interfaces[PAYMENT_INTERFACE_TEST_IDENTIFIER] = payment_test_interface();
 
@@ -145,64 +149,64 @@ int start(bool quiet)
     close(logfile_fileno);
   }
 
-  int cli_sockfd, link_sockfd, current_sockfd;
-  //Set up socket for CLI communication
+  int cli_sockfd, link_sockfd;
   socklen_t clilen;
   char buffer[256];
-  struct sockaddr_un serv_addr, cli_addr;
-  int n;
+  int result, n;
+
+  //Set up socket for CLI communication
+  struct sockaddr_un serv_un_addr, current_addr;
   cli_sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
   if (cli_sockfd < 0) { 
     printf("ERROR opening socket\n");
   }
-  serv_addr.sun_family = AF_UNIX;
-  strncpy(serv_addr.sun_path, SOCK_PATH,strlen(SOCK_PATH));
-  int result = bind(cli_sockfd, (struct sockaddr *) &serv_addr, strlen(SOCK_PATH) + 2);
+  serv_un_addr.sun_family = AF_UNIX;
+  strncpy(serv_un_addr.sun_path, SOCK_PATH,strlen(SOCK_PATH));
+  result = bind(cli_sockfd, (struct sockaddr *) &serv_un_addr, strlen(SOCK_PATH) + 2);
   if (result < 0) {
-    printf("Binding error %i. Are you running as root?\n",result);
+    printf("Binding error %i getting CLI socket. Are you running as root?\n",result);
     return 1;
   }
 
   //Set up socket for INET communication
-  //socklen_t clilen;
-  //char buffer[256];
-  //struct sockaddr_un serv_addr, cli_addr;
-  //int n;
-  //link_sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
-  //if (link_sockfd < 0) { 
-  //  printf("ERROR opening socket\n");
-  //}
-  //serv_addr.sun_family = AF_UNIX;
-  //strncpy(serv_addr.sun_path, SOCK_PATH,strlen(SOCK_PATH));
-  //int result = bind(link_sockfd, (struct sockaddr *) &serv_addr, strlen(SOCK_PATH) + 2);
-  //if (result < 0) {
-  //  printf("Binding error %i. Are you running as root?\n",result);
-  //  return 1;
-  //}
+  struct sockaddr_in serv_in_addr;
+  link_sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (link_sockfd < 0) { 
+    printf("ERROR opening socket\n");
+  }
+  serv_in_addr.sin_family = AF_INET;
+  serv_in_addr.sin_port = htons(10325);
+  serv_in_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  result = bind(link_sockfd, (struct sockaddr *) &serv_in_addr, sizeof(serv_in_addr));
+  if (result < 0) {
+    printf("Binding error %i getting INET socket. Are you running as root?\n",result);
+    return 1;
+  }
 
   //Set up loop for events
   T_STATE states[MAX_CONNECTIONS];
   int new_connection = 0;
   int command_result = 0;
+  fd_set readfds;
+  int maxfd, fd;
+  unsigned int i;
+  int status;
   while(command_result > -1) {
     listen(cli_sockfd,2);
-    clilen = sizeof(cli_addr);
+    clilen = sizeof(current_addr);
 
     //loop through all available sockets for any incoming messages
-    fd_set readfds;
-    int maxfd, fd;
-    unsigned int i;
-    int status;
-    int fds[new_connection + 1];
+    int fds[new_connection + 2];
 
     for (i = 0; i < new_connection; i++) {
       fds[i] = atoi(states[i].interface_id);
     }
     fds[new_connection] = cli_sockfd;
+    fds[new_connection + 1] = link_sockfd;
 
     FD_ZERO(&readfds);
     maxfd = -1;
-    for (i = 0; i < new_connection + 1; i++) {
+    for (i = 0; i < new_connection + 2; i++) {
         FD_SET(fds[i], &readfds);
         if (fds[i] > maxfd) {
             maxfd = fds[i];
@@ -214,7 +218,7 @@ int start(bool quiet)
         command_result = -1;
     }
     fd = -1;
-    for (i = 0; i < new_connection + 1; i++)
+    for (i = 0; i < new_connection + 2; i++)
         if (FD_ISSET(fds[i], &readfds)) {
             fd = fds[i];
             break;
@@ -224,21 +228,27 @@ int start(bool quiet)
       command_result = -1;
     }
     else {
-      current_sockfd = accept(fd, (struct sockaddr *) &cli_addr, &clilen);
+      bzero(buffer,256);
+      if (fd == cli_sockfd) {
+        int current_sockfd = accept(fd, (struct sockaddr *) &current_addr, &clilen);
+        if (current_sockfd < 0) {
+          printf("ERROR on accept\n");
+          command_result = -1;
+        }
+        n = read(current_sockfd,buffer,256);
+        if (n < 0) {
+          printf("ERROR reading from socket\n");
+          command_result = -1;
+        }
+      } else {
+        n = recvfrom(fd, buffer, 256, 0, (struct sockaddr *) &current_addr, &clilen);
+        if (n < 0) {
+          continue;
+        }
+      }
     }
 
     //now operate on the message that was found
-    if (current_sockfd < 0) {
-      printf("ERROR on accept\n");
-      command_result = -1;
-    }
-    bzero(buffer,256);
-    n = read(current_sockfd,buffer,255);
-    if (n < 0) {
-      printf("ERROR reading from socket\n");
-      command_result = -1;
-    }
-
     printf("Received incoming message %s\n",buffer);
 
     char *message = buffer;
@@ -409,8 +419,8 @@ int start(bool quiet)
     }
   }
 
-  close(current_sockfd);
   close(cli_sockfd);
+  close(link_sockfd);
   if (unlink(SOCK_PATH) < 0) {
     printf("ERROR deleting socket\n");
   }
@@ -420,7 +430,7 @@ int start(bool quiet)
 
 int send_cli_message(char *message)
 {
-  int sockfd, portno, n;
+  int sockfd, n;
   struct sockaddr_un serv_addr;
   bzero((char *) &serv_addr, sizeof(serv_addr));
   char buffer[256];
