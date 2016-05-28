@@ -151,7 +151,7 @@ int start(bool quiet)
 
   int cli_sockfd, link_sockfd;
   socklen_t clilen;
-  char buffer[256];
+  char buffer[CHAR_BUFFER_LEN];
   int result, n;
 
   //Set up socket for CLI communication
@@ -228,20 +228,20 @@ int start(bool quiet)
       command_result = -1;
     }
     else {
-      bzero(buffer,256);
+      bzero(buffer,CHAR_BUFFER_LEN);
       if (fd == cli_sockfd) {
         int current_sockfd = accept(fd, (struct sockaddr *) &current_addr, &clilen);
         if (current_sockfd < 0) {
           printf("ERROR on accept\n");
           command_result = -1;
         }
-        n = read(current_sockfd,buffer,256);
+        n = read(current_sockfd,buffer,CHAR_BUFFER_LEN);
         if (n < 0) {
           printf("ERROR reading from socket\n");
           command_result = -1;
         }
       } else {
-        n = recvfrom(fd, buffer, 256, 0, (struct sockaddr *) &current_addr, &clilen);
+        n = recvfrom(fd, buffer, CHAR_BUFFER_LEN, 0, (struct sockaddr *) &current_addr, &clilen);
         if (n < 0) {
           continue;
         }
@@ -433,8 +433,8 @@ int send_cli_message(char *message)
   int sockfd, n;
   struct sockaddr_un serv_addr;
   bzero((char *) &serv_addr, sizeof(serv_addr));
-  char buffer[256];
-  bzero(buffer,256);
+  char buffer[CHAR_BUFFER_LEN];
+  bzero(buffer,CHAR_BUFFER_LEN);
   sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
   if (sockfd < 0) {
       printf("ERROR opening socket\n");

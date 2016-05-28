@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define CHAR_BUFFER_LEN 256
+
 #define LINK_INTERFACES_NUMBER 2
 #define NETWORK_INTERFACES_NUMBER 1
 #define PAYMENT_INTERFACES_NUMBER 1
