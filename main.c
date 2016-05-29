@@ -77,6 +77,7 @@ struct interface_id_udp* find_interface(struct interface_id_udp interfaces[], in
       current_interface = &interfaces[*new_connection];
       *new_connection = *new_connection + 1;
       strcpy(current_interface->ip_addr, ip_addr);
+      current_interface->outgoing_port = LINK_UDP_DEFAULT_PORT;
       current_interface->sockfd = create_udp_socket(&current_interface->incoming_port);
       if (current_interface->sockfd < 0) {
         return NULL;
@@ -111,14 +112,14 @@ void link_send_message(struct interface_id_udp *interface_id, char *message) {
   }
 }
 
-struct interface_id_udp* link_receive_message(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char* message) {
-  printf("Received raw message: %s\n",message);
-  char *ip_addr = strsep(&message," ");
+struct interface_id_udp* link_receive_message(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char** message) {
+  printf("Received raw message: %s\n",*message);
+  char *ip_addr = strsep(message," ");
   if (ip_addr == NULL) {
     printf("No ip_addr provided.\n");
     return NULL;
   }
-  char *port = strsep(&message," ");
+  char *port = strsep(message," ");
   if (port == NULL) {
     printf("No port provided.\n");
     return NULL;
@@ -149,7 +150,7 @@ int create_udp_socket(unsigned int *port) {
   return sockfd;
 }
 
-int parse_message(T_STATE *current_state, char *message) {
+int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE payment_interface, T_NETWORK_INTERFACE network_interface) {
     char *argument = strsep(&message," ");
     if (argument == NULL) {
       printf("No message sent to receive.\n");
@@ -159,7 +160,7 @@ int parse_message(T_STATE *current_state, char *message) {
       } else {
     evaluate_request(current_state);
     current_state->status = PROPOSE;
-    //link_interface.send_propose(current_state->interface_id, current_state->address,
+    //link_interface.send_propose(current_state->interface_id->ip_addr, current_state->address,
       //current_state->price, current_state->payment_advance, current_state->time_expiration);
       }
     } else if (strcmp(argument,"propose") == 0) {
@@ -180,13 +181,13 @@ int parse_message(T_STATE *current_state, char *message) {
     current_state->time_expiration = (time_t)strtol(time_expiration,NULL,10);
     if (evaluate_propose(current_state)) {
       current_state->status = ACCEPT;
-      //link_interface.send_accept(current_state->interface_id, current_state->address);
+      //link_interface.send_accept(current_state->interface_id->ip_addr, current_state->address);
       int64_t payment = MAX_PAYMENT;
-      //payment_interface.send_payment(current_state->interface_id, current_state->address, payment);
+      payment_interface.send_payment(current_state->interface_id->ip_addr, current_state->address, payment);
       current_state->payment_sent += payment;
     } else {
       current_state->status = REJECT;
-      //link_interface.send_reject(current_state->interface_id, current_state->address,
+      //link_interface.send_reject(current_state->interface_id->ip_addr, current_state->address,
         //current_state->price, current_state->payment_advance, current_state->time_expiration);
     }
       }
@@ -213,7 +214,7 @@ int parse_message(T_STATE *current_state, char *message) {
     current_state->payment_advance = strtol(payment_advance,NULL,10);
     current_state->time_expiration = (time_t)strtol(time_expiration,NULL,10);
     evaluate_reject(current_state);
-    //link_interface.send_propose(current_state->interface_id, current_state->address,
+    //link_interface.send_propose(current_state->interface_id->ip_addr, current_state->address,
       //current_state->price, current_state->payment_advance, current_state->time_expiration);
     current_state->status = PROPOSE;
       }
@@ -222,7 +223,7 @@ int parse_message(T_STATE *current_state, char *message) {
     printf("Not ready to receive begin.\n");
       } else {
     current_state->status = COUNT_PACKETS;
-    //network_interface.gate_interface(current_state->interface_id, current_state->address, true);
+    network_interface.gate_interface(current_state->interface_id->ip_addr, current_state->address, true);
       }
     } else if (strcmp(argument,"payment") == 0) {
       char *price_arg = strsep(&message," ");
@@ -233,10 +234,10 @@ int parse_message(T_STATE *current_state, char *message) {
       } else {
     current_state->payment_sent += (int64_t)strtol(price_arg,NULL,10);
     if (deliver_service(current_state)) {
-      //network_interface.gate_interface(current_state->interface_id, current_state->address, true);
+      network_interface.gate_interface(current_state->interface_id->ip_addr, current_state->address, true);
       if (current_state->status != BEGIN) {
         current_state->status = BEGIN;
-        //link_interface.send_begin(current_state->interface_id, current_state->address);
+        //link_interface.send_begin(current_state->interface_id->ip_addr, current_state->address);
       }
     }
       }
@@ -249,12 +250,12 @@ int parse_message(T_STATE *current_state, char *message) {
       } else {
     current_state->packets_delivered = strtol(count,NULL,10);
     if (!deliver_service(current_state)) {
-      //network_interface.gate_interface(current_state->interface_id, current_state->address, false);
+      network_interface.gate_interface(current_state->interface_id->ip_addr, current_state->address, false);
     }
 
     if (current_state->status == COUNT_PACKETS && renew_service(current_state)) {
       int64_t payment = MAX_PAYMENT;
-      //payment_interface.send_payment(current_state->interface_id, current_state->address, payment);
+      payment_interface.send_payment(current_state->interface_id->ip_addr, current_state->address, payment);
       current_state->payment_sent += payment;
     }
       }
@@ -450,6 +451,8 @@ int start(bool quiet)
         }
         else if (strcmp(argument,"send") == 0) {
           char *ip_addr = strsep(&message," ");
+          char address_with_message[CHAR_BUFFER_LEN];
+          strcpy(address_with_message, message);
           char *address = strsep(&message," ");
           if (ip_addr == NULL) {
             printf("No ip_addr id provided.\n");
@@ -460,7 +463,6 @@ int start(bool quiet)
             if (current_interface == NULL) {
               printf("Unable to find current interface for argument %s\n",argument);
             } else {
-              current_interface->outgoing_port = LINK_UDP_DEFAULT_PORT;
               T_STATE *current_state = find_state(states, &new_contract, current_interface, address);
 
               argument = strsep(&message," ");
@@ -468,7 +470,7 @@ int start(bool quiet)
                 printf("No message sent to receive.\n");
               } else if (strcmp(argument,"request") == 0) {
                 current_state->status = REQUEST;
-                link_send_message(current_interface, "request");
+                link_send_message(current_interface, address_with_message);
               } else if (strcmp(argument,"stop") == 0) {
                 if (current_state->status != COUNT_PACKETS) {
                   printf("Not ready to stop contract.\n");
@@ -481,11 +483,11 @@ int start(bool quiet)
         }
         else if (strcmp(argument,"receive") == 0) {
           char *message = buffer;
-          struct interface_id_udp *current_interface = link_receive_message(interface_ids, &new_connection, 0, message);
+          struct interface_id_udp *current_interface = link_receive_message(interface_ids, &new_connection, 0, &message);
 
           char *address = strsep(&message," ");
           T_STATE *current_state = find_state(states, &new_contract, current_interface, address);
-          parse_message(current_state, message);
+          parse_message(current_state, message, payment_interface, network_interface);
         }
         else {
           printf("Invalid command sent to server.\n");
@@ -496,18 +498,18 @@ int start(bool quiet)
           continue;
         }
 
-        char *raw_message = buffer;
         char *message = buffer;
-        struct interface_id_udp *current_interface = link_receive_message(interface_ids, &new_connection, fd, message);
+        struct interface_id_udp *current_interface = link_receive_message(interface_ids, &new_connection, fd, &message);
         if (current_interface == NULL) {
-          printf("Unable to find current interface for raw message %s\n",raw_message);
+          printf("Unable to find current interface\n");
         } else {
+          printf("About to parse message %s\n",message);
           char *address = strsep(&message," ");
           T_STATE *current_state = find_state(states, &new_contract, current_interface, address);
           if (current_state == NULL) {
-            printf("Unable to find current state for raw message %s\n",raw_message);
+            printf("Unable to find current state\n");
           } else {
-            parse_message(current_state, message);
+            parse_message(current_state, message, payment_interface, network_interface);
           }
         }
       }
