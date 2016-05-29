@@ -18,6 +18,7 @@
 #define PAYMENT 8
 
 #define MAX_CONNECTIONS 4
+#define MAX_CONTRACTS 10
 #define MAX_IDENTIFIER_LEN 256
 #define MAX_ADDRESS_LEN 256
 
@@ -32,8 +33,15 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+struct interface_id_udp {
+  char ip_addr[16];
+  unsigned int incoming_port;
+  unsigned int outgoing_port;
+  int sockfd;
+};
+
 typedef struct S_STATE {
-  char interface_id[MAX_IDENTIFIER_LEN];
+  struct interface_id_udp *interface_id;
   int sock_in;
   int sock_out;
   int status;
@@ -54,11 +62,12 @@ typedef struct S_CONFIG {
 typedef struct S_LINK_INTERFACE {
   int identifier;
   void (*link_init)();
-  void (*send_request)(char *interface_id, char *address);
-  void (*send_propose)(char *interface_id, char *address, int64_t price, long int payment_advance, time_t time_expiration);
-  void (*send_accept)(char *interface_id, char *address);
-  void (*send_reject)(char *interface_id, char *address, int64_t price, long int payment_advance, time_t time_expiration);
-  void (*send_begin)(char *interface_id, char *address);
+  char* (*link_receive)(struct interface_id_udp *interface_id);
+  void (*send_request)(struct interface_id_udp *interface_id, char *address);
+  void (*send_propose)(struct interface_id_udp *interface_id, char *address, int64_t price, long int payment_advance, time_t time_expiration);
+  void (*send_accept)(struct interface_id_udp *interface_id, char *address);
+  void (*send_reject)(struct interface_id_udp *interface_id, char *address, int64_t price, long int payment_advance, time_t time_expiration);
+  void (*send_begin)(struct interface_id_udp *interface_id, char *address);
   void (*send_stop)();
   void (*link_destroy)();
 } T_LINK_INTERFACE;
@@ -81,7 +90,7 @@ static T_CONFIG read_config();
 
 static int write_buffer(int sockfd, const char* message);
 int send_cli_message();
-static T_STATE* find_state(T_STATE states[], int *new_connection, char *interface_id, char *address);
+static T_STATE* find_state(T_STATE states[], int *new_contract, struct interface_id_udp *interface_id, char *address);
 
 #endif
 

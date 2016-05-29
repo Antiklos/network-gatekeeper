@@ -12,13 +12,13 @@ To test receipt of a certain message from the link: ./ngp server "[message]"
 
 Message formats:
 
-send (interface_id) (address) request
-send (interface_id) (address) stop
-receive (interface_id) (address) request
-receive (interface_id) (address) propose (price) (payment_advance) (time_expiration)
-receive (interface_id) (address) accept
-receive (interface_id) (address) reject (price) (payment_advance) (time_expiration)
-receive (interface_id) (address) begin
+send (interface_id) (port) (address) request
+send (interface_id) (port) (address) stop
+receive (interface_id) (port) (address) request
+receive (interface_id) (port) (address) propose (price) (payment_advance) (time_expiration)
+receive (interface_id) (port) (address) accept
+receive (interface_id) (port) (address) reject (price) (payment_advance) (time_expiration)
+receive (interface_id) (port) (address) begin
 
 Example: "receive 1234 propose 45"
 
