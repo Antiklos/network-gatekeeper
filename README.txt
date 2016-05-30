@@ -1,4 +1,5 @@
 Dependencies: glib-2.0
+Tested only on Ubuntu 14.04
 To compile: gcc main.c -o ngp -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -lglib-2.0
 
 To start daemon: ./ngp start
@@ -20,7 +21,7 @@ receive (interface_id) (port) (address) accept
 receive (interface_id) (port) (address) reject (price) (payment_advance) (time_expiration)
 receive (interface_id) (port) (address) begin
 
-Example: "receive 1234 propose 45"
+Example: "receive 127.0.0.1 10325 1234 propose 45"
 
 Definitions:
 
@@ -52,7 +53,8 @@ The state of each connection is tracked in the state struct. Here is a definitio
   time_t time_expiration;
 
 Features to add in:
-- Implement the link system using inet sockets instead of dummy messages to the terminal
+- Stop using human readable messages over the link system and instead encode the message as a byte array
+- Implement the gating of network traffic from the network_ipv4 class using iptables
 - Implement the auto construction and destruction of an ipv4 network in the network_ipv4 class
 - Create a new payment class to implement sending and receiving bitcoin
 - Smarter client behavior for making payments just in time
