@@ -13,7 +13,7 @@ To test receipt of a certain message from the link: ./ngp server "[message]"
 
 Message formats:
 
-send (interface_id) (port) (address) request
+send (host_ip_addr) (dest_ip_addr) (port) (address) request
 send (interface_id) (port) (address) stop
 receive (interface_id) (port) (address) request
 receive (interface_id) (port) (address) propose (price) (payment_advance) (time_expiration)
@@ -53,7 +53,7 @@ The state of each connection is tracked in the state struct. Here is a definitio
   time_t time_expiration;
 
 Features to add in:
-- Stop using human readable messages over the link system and instead encode the message as a byte array
+- Test it out on a real network
 - Implement the gating of network traffic from the network_ipv4 class using iptables
 - Implement the auto construction and destruction of an ipv4 network in the network_ipv4 class
 - Create a new payment class to implement sending and receiving bitcoin

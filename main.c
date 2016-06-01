@@ -58,32 +58,35 @@ static int write_buffer(int sockfd, const char* message)
   return write(sockfd,message,strlen(message));
 }
 
-struct interface_id_udp* find_interface(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char *ip_addr) {
+struct interface_id_udp* find_interface(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char *ip_addr_src, char *ip_addr_dst) {
     struct interface_id_udp *current_interface = NULL;
     int i;
     for (i = 0; i < *new_connection; i++) {
       if (interfaces[i].sockfd == sockfd) {
       current_interface = &interfaces[i];
       printf("Found previous interface for ip_addr %s outport %u inport %u and sockfd %i\n",
-        current_interface->ip_addr, current_interface->outgoing_port, current_interface->incoming_port, current_interface->sockfd);
+        current_interface->ip_addr_dst, current_interface->outgoing_port, current_interface->incoming_port, current_interface->sockfd);
       //break;
       }
     }
     if (current_interface == NULL) {
-      if (ip_addr == NULL || ip_addr == "") {
+      if (ip_addr_dst == NULL || ip_addr_dst == "") {
         printf("Must provide ip_addr for new interfaces\n");
         return NULL;
       }
       current_interface = &interfaces[*new_connection];
       *new_connection = *new_connection + 1;
-      strcpy(current_interface->ip_addr, ip_addr);
+      if (ip_addr_src != NULL) {
+        strcpy(current_interface->ip_addr_src, ip_addr_src);
+      }
+      strcpy(current_interface->ip_addr_dst, ip_addr_dst);
       current_interface->outgoing_port = LINK_UDP_DEFAULT_PORT;
       current_interface->sockfd = create_udp_socket(&current_interface->incoming_port);
       if (current_interface->sockfd < 0) {
         return NULL;
       }
       printf("Creating new interface for ip_addr %s outport %u inport %u and sockfd %i\n",
-        current_interface->ip_addr, current_interface->outgoing_port, current_interface->incoming_port, current_interface->sockfd);
+        current_interface->ip_addr_dst, current_interface->outgoing_port, current_interface->incoming_port, current_interface->sockfd);
     }
 
     return current_interface;
@@ -92,10 +95,9 @@ struct interface_id_udp* find_interface(struct interface_id_udp interfaces[], in
 void link_send_message(struct interface_id_udp *interface_id, char *message) {
   printf("About to send message: %s\n",message);
   char buffer[CHAR_BUFFER_LEN];
-  strcpy(buffer, "127.0.0.1"); //Make this find out the ip of the local machine on the interface network?
-  strcat(buffer, " ");
+  strcpy(buffer, interface_id->ip_addr_src);
   char port[8];
-  sprintf(port, "%u ", interface_id->incoming_port);
+  sprintf(port, " %u ", interface_id->incoming_port);
   strcat(buffer, port);
   strcat(buffer, message);
   message = buffer;
@@ -105,7 +107,7 @@ void link_send_message(struct interface_id_udp *interface_id, char *message) {
   int sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_port = htons(interface_id->outgoing_port);
-  inet_aton(interface_id->ip_addr, &serv_addr.sin_addr);
+  inet_aton(interface_id->ip_addr_dst, &serv_addr.sin_addr);
   int result = sendto(sockfd, message, strlen(message), 0, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
   if (result < 0) {
     printf("send_request_udp failed\n");
@@ -124,7 +126,7 @@ struct interface_id_udp* link_receive_message(struct interface_id_udp interfaces
     printf("No port provided.\n");
     return NULL;
   }
-  struct interface_id_udp *current_interface = find_interface(interfaces, new_connection, sockfd, ip_addr);
+  struct interface_id_udp *current_interface = find_interface(interfaces, new_connection, sockfd, NULL, ip_addr);
   current_interface->outgoing_port = (unsigned int)strtol(port,NULL,10);
   return current_interface;
 }
@@ -150,8 +152,28 @@ int create_udp_socket(unsigned int *port) {
   return sockfd;
 }
 
+void construct_message(char *message, T_STATE *current_state, const char *action) {
+  char buffer[16];
+  char *buf = buffer;
+  strcpy(message, current_state->address);
+  strcat(message, " ");
+  strcat(message, action);
+  strcat(message, " ");
+  sprintf(buf, "%lli ", (long long int)current_state->price);
+  strcat(message,  buf);
+  bzero(buffer, 16);
+  sprintf(buf, "%li ", current_state->payment_advance);
+  strcat(message,  buf);
+  bzero(buffer, 16);
+  sprintf(buf, "%u", (unsigned int)current_state->time_expiration);
+  strcat(message,  buf);
+  bzero(buffer, 16);
+} 
+
 int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE payment_interface, T_NETWORK_INTERFACE network_interface) {
     char *argument = strsep(&message," ");
+    char buffer[CHAR_BUFFER_LEN];
+    char *current_message = buffer;
     if (argument == NULL) {
       printf("No message sent to receive.\n");
     } else if (strcmp(argument,"request") == 0) {
@@ -160,6 +182,8 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
       } else {
     evaluate_request(current_state);
     current_state->status = PROPOSE;
+    construct_message(current_message, current_state, "propose");
+    link_send_message(current_state->interface_id, message);
     //link_interface.send_propose(current_state->interface_id->ip_addr, current_state->address,
       //current_state->price, current_state->payment_advance, current_state->time_expiration);
       }
@@ -181,12 +205,17 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
     current_state->time_expiration = (time_t)strtol(time_expiration,NULL,10);
     if (evaluate_propose(current_state)) {
       current_state->status = ACCEPT;
+      strcpy(message, current_state->address);
+      strcat(message, " accept");
+      link_send_message(current_state->interface_id, message);
       //link_interface.send_accept(current_state->interface_id->ip_addr, current_state->address);
       int64_t payment = MAX_PAYMENT;
-      payment_interface.send_payment(current_state->interface_id->ip_addr, current_state->address, payment);
+      payment_interface.send_payment(current_state->interface_id->ip_addr_dst, current_state->address, payment);
       current_state->payment_sent += payment;
     } else {
       current_state->status = REJECT;
+      current_state->status = PROPOSE;
+      construct_message(current_message, current_state, "reject");
       //link_interface.send_reject(current_state->interface_id->ip_addr, current_state->address,
         //current_state->price, current_state->payment_advance, current_state->time_expiration);
     }
@@ -214,6 +243,8 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
     current_state->payment_advance = strtol(payment_advance,NULL,10);
     current_state->time_expiration = (time_t)strtol(time_expiration,NULL,10);
     evaluate_reject(current_state);
+    construct_message(current_message, current_state, "propose");
+    link_send_message(current_state->interface_id, message);
     //link_interface.send_propose(current_state->interface_id->ip_addr, current_state->address,
       //current_state->price, current_state->payment_advance, current_state->time_expiration);
     current_state->status = PROPOSE;
@@ -223,7 +254,7 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
     printf("Not ready to receive begin.\n");
       } else {
     current_state->status = COUNT_PACKETS;
-    network_interface.gate_interface(current_state->interface_id->ip_addr, current_state->address, true);
+    network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, true);
       }
     } else if (strcmp(argument,"payment") == 0) {
       char *price_arg = strsep(&message," ");
@@ -234,9 +265,11 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
       } else {
     current_state->payment_sent += (int64_t)strtol(price_arg,NULL,10);
     if (deliver_service(current_state)) {
-      network_interface.gate_interface(current_state->interface_id->ip_addr, current_state->address, true);
+      network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, true);
       if (current_state->status != BEGIN) {
         current_state->status = BEGIN;
+        strcat(message, " begin");
+        link_send_message(current_state->interface_id, message);
         //link_interface.send_begin(current_state->interface_id->ip_addr, current_state->address);
       }
     }
@@ -250,12 +283,12 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
       } else {
     current_state->packets_delivered = strtol(count,NULL,10);
     if (!deliver_service(current_state)) {
-      network_interface.gate_interface(current_state->interface_id->ip_addr, current_state->address, false);
+      network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, false);
     }
 
     if (current_state->status == COUNT_PACKETS && renew_service(current_state)) {
       int64_t payment = MAX_PAYMENT;
-      payment_interface.send_payment(current_state->interface_id->ip_addr, current_state->address, payment);
+      payment_interface.send_payment(current_state->interface_id->ip_addr_dst, current_state->address, payment);
       current_state->payment_sent += payment;
     }
       }
@@ -269,9 +302,9 @@ static T_STATE* find_state(T_STATE states[], int *new_contract, struct interface
   int i;
   for (i = 0; i < *new_contract; i++) {
     printf("About to try to find state address %s\n",states[i].address);
-    if (states[i].interface_id != NULL && strcmp(states[i].interface_id->ip_addr,interface_id->ip_addr) == 0 && strcmp(states[i].address,address) == 0) {
+    if (states[i].interface_id != NULL && strcmp(states[i].interface_id->ip_addr_dst,interface_id->ip_addr_dst) == 0 && strcmp(states[i].address,address) == 0) {
       current_state = &states[i];
-      printf("Found previous state for identifier %s and address %s\n",interface_id->ip_addr, address);
+      printf("Found previous state for identifier %s and address %s\n",interface_id->ip_addr_dst, address);
       //break;
     }
   }
@@ -284,7 +317,7 @@ static T_STATE* find_state(T_STATE states[], int *new_contract, struct interface
     current_state->price = 0;
     current_state->payment_sent = 0;
     current_state->packets_delivered = 0;
-    printf("Creating new state for identifier %s and address %s\n",interface_id->ip_addr, address);
+    printf("Creating new state for identifier %s and address %s\n",interface_id->ip_addr_dst, address);
   }
 
   return current_state;
@@ -450,16 +483,19 @@ int start(bool quiet)
           command_result = -1;
         }
         else if (strcmp(argument,"send") == 0) {
-          char *ip_addr = strsep(&message," ");
+          char *ip_addr_src = strsep(&message," ");
+          char *ip_addr_dst = strsep(&message," ");
           char address_with_message[CHAR_BUFFER_LEN];
           strcpy(address_with_message, message);
           char *address = strsep(&message," ");
-          if (ip_addr == NULL) {
-            printf("No ip_addr id provided.\n");
+          if (ip_addr_src == NULL) {
+            printf("No ip_addr_src id provided.\n");
+          } else if (ip_addr_dst == NULL) {
+            printf("No ip_addr_dst id provided.\n");
           } else if (address == NULL) {
             printf("No address provided.\n");
           } else {
-            struct interface_id_udp *current_interface = find_interface(interface_ids, &new_connection, 0, ip_addr);
+            struct interface_id_udp *current_interface = find_interface(interface_ids, &new_connection, 0, ip_addr_src, ip_addr_dst);
             if (current_interface == NULL) {
               printf("Unable to find current interface for argument %s\n",argument);
             } else {

@@ -34,7 +34,8 @@
 #define MAIN_H
 
 struct interface_id_udp {
-  char ip_addr[16];
+  char ip_addr_src[16];
+  char ip_addr_dst[16];
   unsigned int incoming_port;
   unsigned int outgoing_port;
   int sockfd;
