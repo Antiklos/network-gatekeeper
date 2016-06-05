@@ -172,7 +172,7 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
     evaluate_request(current_state);
     current_state->status = PROPOSE;
     construct_message(current_message, current_state, "propose");
-    link_send_message(current_state->interface_id, message);
+    link_send_message(current_state->interface_id, current_message);
     //link_interface.send_propose(current_state->interface_id->ip_addr, current_state->address,
       //current_state->price, current_state->payment_advance, current_state->time_expiration);
       }
@@ -194,9 +194,9 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
     current_state->time_expiration = (time_t)strtol(time_expiration,NULL,10);
     if (evaluate_propose(current_state)) {
       current_state->status = ACCEPT;
-      strcpy(message, current_state->address);
-      strcat(message, " accept");
-      link_send_message(current_state->interface_id, message);
+      strcpy(current_message, current_state->address);
+      strcat(current_message, " accept");
+      link_send_message(current_state->interface_id, current_message);
       //link_interface.send_accept(current_state->interface_id->ip_addr, current_state->address);
       int64_t payment = MAX_PAYMENT;
       payment_interface.send_payment(current_state->interface_id->ip_addr_dst, current_state->address, payment);
@@ -205,6 +205,7 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
       current_state->status = REJECT;
       current_state->status = PROPOSE;
       construct_message(current_message, current_state, "reject");
+      link_send_message(current_state->interface_id, current_message);
       //link_interface.send_reject(current_state->interface_id->ip_addr, current_state->address,
         //current_state->price, current_state->payment_advance, current_state->time_expiration);
     }
@@ -233,7 +234,7 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
     current_state->time_expiration = (time_t)strtol(time_expiration,NULL,10);
     evaluate_reject(current_state);
     construct_message(current_message, current_state, "propose");
-    link_send_message(current_state->interface_id, message);
+    link_send_message(current_state->interface_id, current_message);
     //link_interface.send_propose(current_state->interface_id->ip_addr, current_state->address,
       //current_state->price, current_state->payment_advance, current_state->time_expiration);
     current_state->status = PROPOSE;
@@ -257,8 +258,8 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
       network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, true);
       if (current_state->status != BEGIN) {
         current_state->status = BEGIN;
-        strcat(message, " begin");
-        link_send_message(current_state->interface_id, message);
+        strcat(current_message, " begin");
+        link_send_message(current_state->interface_id, current_message);
         //link_interface.send_begin(current_state->interface_id->ip_addr, current_state->address);
       }
     }
