@@ -19,7 +19,6 @@ Received raw message: 127.0.0.1 55908 192.168.33.77 request
 Created udp socket for port 54101 and sockfd 8
 Creating new interface for ip_addr 127.0.0.1 outport 10325 inport 54101 and sockfd 8
 About to parse message 192.168.33.77 request
-About to try to find state address 192.168.33.77
 Found previous state for identifier 127.0.0.1 and address 192.168.33.77
 Cannot process request. Contract already in progress.
 
@@ -31,6 +30,15 @@ The server finds it, but bails here, because it isn't allowed to send a "propose
 An ngp daemon will never send a message to itself, but it's useful here to be able to get a quick look into the daemon in action without having to set it up on multiple machines.
 
 6. Stop the daemon: sudo ./ngp stop
+
+
+If you want to test out a real communication in action, you'll need to set it up on two machines, and make sure that they are able to access each other over a network.
+Since we're using UDP for the communication, the two hosts don't need to be adjacent on the network.
+After you've tested that each of the hosts is able to run the daemon like described above, start the daemon and run this command:
+sudo ./ngp server "send 192.168.50.10 192.168.50.20 192.168.33.77 request"
+In this example, 192.168.50.10 is the client and 192.168.50.20 is the server, and 192.168.33.77 is the address the client wants the server to route its packets to.
+In the console output of both machines, you should see the description of what's happening similar to the output above.
+It will stop at the point where they have agreed upon terms, and the server is waiting for payment from the client.
 
 
 Message formats:

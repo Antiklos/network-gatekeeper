@@ -203,7 +203,6 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
       current_state->payment_sent += payment;
     } else {
       current_state->status = REJECT;
-      current_state->status = PROPOSE;
       construct_message(current_message, current_state, "reject");
       link_send_message(current_state->interface_id, current_message);
       //link_interface.send_reject(current_state->interface_id->ip_addr, current_state->address,
@@ -291,7 +290,6 @@ static T_STATE* find_state(T_STATE states[], int *new_contract, struct interface
   T_STATE *current_state = NULL;
   int i;
   for (i = 0; i < *new_contract; i++) {
-    printf("About to try to find state address %s\n",states[i].address);
     if (states[i].interface_id != NULL && strcmp(states[i].interface_id->ip_addr_dst,interface_id->ip_addr_dst) == 0 && strcmp(states[i].address,address) == 0) {
       current_state = &states[i];
       printf("Found previous state for identifier %s and address %s\n",interface_id->ip_addr_dst, address);
