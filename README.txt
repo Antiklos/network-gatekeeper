@@ -1,10 +1,10 @@
-Dependencies: gcc; glib-2.0
-Tested only on Ubuntu 14.04
+Dependencies: gcc; glib-2.0; build-essential; libgtk2.0-dev
+Tested only on Ubuntu 14.04 and Debian Jessie
 
 To get started right away with one machine, here's a guide on how to test it out:
 
-1. Install dependencies: sudo apt-get install gcc glib-2.0
-2. Compile the code: gcc main.c -o ngp -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -lglib-2.0
+1. Install dependencies: sudo apt-get install gcc glib-2.0 build-essential libgtk2.0-dev
+2. Compile the code: gcc `pkg-config --cflags glib-2.0` main.c `pkg-config --libs glib-2.0` -o ngp
 3. Start the server: sudo ./ngp start
 4. Now test that the server is receiving messages on the local unix socket: sudo ./ngp server test
 5. Try to send a message over the sockets that are opened up to UDP messages on your local machine: sudo ./ngp server "send 127.0.0.1 127.0.0.1 192.168.33.77 request"
@@ -72,6 +72,7 @@ Features to add in:
 - Create a new payment class to implement sending and receiving bitcoin
 - Implement the automatic server configuration, including enabling routing and DNS, probably using DHCP?
 - Find a way for the client to anticipate when traffic is about to be sent to a destination, and then send the request before allowing sending traffic
+- GTK is overkill for reading the config, so it would be better to find a universal dependency to read the config or else just parse it by hand
 - Implement use cases for renewing contracts
 - Smarter client behavior for making payments just in time
 - Smarter default client behavior for polling all interfaces and choosing the best deal
