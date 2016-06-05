@@ -74,7 +74,6 @@ Each message is an interaction between what we'll call a "client" and "server". 
 <--begin    The server responds, letting the client know that they may begin sending network packets
 
 Features to add in:
-- Test it out on a real network
 - Implement the gating of network traffic from the network_ipv4 class using iptables
 - Create a test message framework to spoof making payments
 - Create a new payment class to implement sending and receiving bitcoin

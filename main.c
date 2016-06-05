@@ -322,6 +322,7 @@ int start(bool quiet)
   link_interfaces[LINK_INTERFACE_TEST_IDENTIFIER] = link_test_interface();
   link_interfaces[LINK_INTERFACE_UDP_IDENTIFIER] = link_udp_interface();
   network_interfaces[NETWORK_INTERFACE_TEST_IDENTIFIER] = network_test_interface();
+  network_interfaces[NETWORK_INTERFACE_IPV4_IDENTIFIER] = network_ipv4_interface();
   payment_interfaces[PAYMENT_INTERFACE_TEST_IDENTIFIER] = payment_test_interface();
 
   //Read config file
@@ -399,6 +400,8 @@ int start(bool quiet)
   //Set up socket for INET communication
   int default_port = LINK_UDP_DEFAULT_PORT;
   link_sockfd = create_udp_socket(&default_port);
+
+  network_interface.network_init();
 
   //Set up loop for events
   T_STATE states[MAX_CONTRACTS];
@@ -553,6 +556,7 @@ int start(bool quiet)
   if (unlink(SOCK_PATH) < 0) {
     printf("ERROR deleting socket\n");
   }
+  network_interface.network_destroy();
   exit(EXIT_SUCCESS);
   return 0;
 }
