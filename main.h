@@ -5,7 +5,7 @@
 
 #define LINK_INTERFACES_NUMBER 2
 #define NETWORK_INTERFACES_NUMBER 2
-#define PAYMENT_INTERFACES_NUMBER 1
+#define PAYMENT_INTERFACES_NUMBER 2
 
 #define DEFAULT 0
 #define REQUEST 1
@@ -19,7 +19,7 @@
 
 #define MAX_CONNECTIONS 4
 #define MAX_CONTRACTS 10
-#define MAX_IDENTIFIER_LEN 256
+#define MAX_INTERFACE_LEN 256
 #define MAX_ADDRESS_LEN 256
 
 //The following three are assumptions for testing that should be eventually calculated dynamically
@@ -34,6 +34,7 @@
 #define MAIN_H
 
 struct interface_id_udp {
+  char interface[MAX_INTERFACE_LEN];
   char ip_addr_src[16];
   char ip_addr_dst[16];
   unsigned int incoming_port;

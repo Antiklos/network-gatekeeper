@@ -12,6 +12,7 @@
 #include "network_test.c"
 #include "network_ipv4.c"
 #include "payment_test.c"
+#include "payment_simulate.c"
 #include "contract.c"
 
 static T_CONFIG read_config()
@@ -324,6 +325,7 @@ int start(bool quiet)
   network_interfaces[NETWORK_INTERFACE_TEST_IDENTIFIER] = network_test_interface();
   network_interfaces[NETWORK_INTERFACE_IPV4_IDENTIFIER] = network_ipv4_interface();
   payment_interfaces[PAYMENT_INTERFACE_TEST_IDENTIFIER] = payment_test_interface();
+  payment_interfaces[PAYMENT_INTERFACE_SIMULATE_IDENTIFIER] = payment_simulate_interface();
 
   //Read config file
   T_CONFIG config = read_config();
@@ -413,6 +415,8 @@ int start(bool quiet)
   int maxfd, fd;
   unsigned int i;
   int status;
+  struct sockaddr_in sock_addr;
+  socklen_t sock_len = sizeof(sock_addr);
   while(command_result > -1) {
     listen(cli_sockfd,2);
     clilen = sizeof(current_addr);
@@ -520,13 +524,14 @@ int start(bool quiet)
           printf("Invalid command sent to server.\n");
         }
       } else {
-        n = recvfrom(fd, buffer, CHAR_BUFFER_LEN, 0, NULL, NULL);
+        n = recvfrom(fd, buffer, CHAR_BUFFER_LEN, 0, (struct sockaddr *)&sock_addr, &sock_len);
         if (n < 0) {
           continue;
         }
 
         char *message = buffer;
         struct interface_id_udp *current_interface = link_receive_message(interface_ids, &new_connection, fd, &message);
+        printf("Received message with address %s\n",inet_ntoa(sock_addr.sin_addr));
         if (current_interface == NULL) {
           printf("Unable to find current interface\n");
         } else {

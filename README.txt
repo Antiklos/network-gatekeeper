@@ -76,9 +76,9 @@ Each message is an interaction between what we'll call a "client" and "server". 
 Features to add in:
 - Implement the gating of network traffic from the network_ipv4 class using iptables
 - Create a test message framework to spoof making payments
+- Find a way for the client to anticipate when traffic is about to be sent to a destination, and then send the request before allowing sending traffic
 - Create a new payment class to implement sending and receiving bitcoin
 - Implement the automatic server configuration, including enabling routing and DNS, probably using DHCP?
-- Find a way for the client to anticipate when traffic is about to be sent to a destination, and then send the request before allowing sending traffic
 - GTK is overkill for reading the config, so it would be better to find a universal dependency to read the config or else just parse it by hand
 - Implement use cases for renewing contracts
 - Smarter client behavior for making payments just in time
