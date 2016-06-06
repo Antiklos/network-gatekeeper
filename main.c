@@ -265,6 +265,7 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
       network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, true);
       if (current_state->status != BEGIN) {
         current_state->status = BEGIN;
+        strcpy(current_message, current_state->address);
         strcat(current_message, " begin");
         link_send_message(current_state->interface_id, current_message);
         //link_interface.send_begin(current_state->interface_id->ip_addr, current_state->address);
@@ -545,7 +546,7 @@ int start(bool quiet)
 
         char *message = buffer;
         struct interface_id_udp *current_interface = link_receive_message(interface_ids, &new_connection, fd, &message);
-        printf("Received message with address %s\n",inet_ntoa(sock_addr.sin_addr));
+        //printf("Received message with address %s\n",inet_ntoa(sock_addr.sin_addr));
         if (current_interface == NULL) {
           printf("Unable to find current interface\n");
         } else {
