@@ -49,6 +49,7 @@ receive (interface_id) (port) (address) request
 receive (interface_id) (port) (address) propose (price) (payment_advance) (time_expiration)
 receive (interface_id) (port) (address) accept
 receive (interface_id) (port) (address) reject (price) (payment_advance) (time_expiration)
+receive (interface_id) (port) (address) payment (amount) <-- only available when using the payment_simulate interface
 receive (interface_id) (port) (address) begin
 
 Example: "receive 127.0.0.1 10325 192.168.22.89 accept"

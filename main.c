@@ -200,7 +200,14 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
       link_send_message(current_state->interface_id, current_message);
       //link_interface.send_accept(current_state->interface_id->ip_addr, current_state->address);
       int64_t payment = MAX_PAYMENT;
+      strcpy(current_message, current_state->address);
+      strcat(current_message, " payment ");
+      char payment_buf[CHAR_BUFFER_LEN];
+      char *payment_buffer = payment_buf;
+      sprintf(payment_buffer, "%lli ", (long long int)payment);
+      strcat(current_message, payment_buffer);
       payment_interface.send_payment(current_state->interface_id->ip_addr_dst, current_state->address, payment);
+      link_send_message(current_state->interface_id, current_message);
       current_state->payment_sent += payment;
     } else {
       current_state->status = REJECT;
@@ -278,7 +285,14 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
 
     if (current_state->status == COUNT_PACKETS && renew_service(current_state)) {
       int64_t payment = MAX_PAYMENT;
+      strcpy(current_message, current_state->address);
+      strcat(current_message, " payment ");
+      char payment_buf[CHAR_BUFFER_LEN];
+      char *payment_buffer = payment_buf;
+      sprintf(payment_buffer, "%lli ", (long long int)payment);
+      strcat(current_message, payment_buffer);
       payment_interface.send_payment(current_state->interface_id->ip_addr_dst, current_state->address, payment);
+      link_send_message(current_state->interface_id, current_message);
       current_state->payment_sent += payment;
     }
       }
