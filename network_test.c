@@ -14,8 +14,8 @@ void network_test_init() {
   printf("Executing network_test_init\n");
 }
 
-void gate_interface_test(char *interface_id, char *address, bool open) {
-  printf("Executing gate_interface_test on interface %s and address %s and open value %i\n", interface_id, address, open);
+void gate_interface_test(char *src_addr, char *dst_addr, time_t time_expiration) {
+  printf("Executing gate_interface_test on src_addr %s and dst_addr %s and time_expiration %i\n", src_addr, dst_addr, (int)time_expiration);
 }
 
 void network_test_destroy() {

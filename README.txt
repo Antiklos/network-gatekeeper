@@ -74,13 +74,13 @@ Each message is an interaction between what we'll call a "client" and "server". 
 -->reject   The client may reject the request, offering a different price or terms. The server must respond with another propose
 <--begin    The server responds, letting the client know that they may begin sending network packets
 
-Features to add in:
+Work to be done:
 - Implement the gating of network traffic from the network_ipv4 class using iptables
-- Create a test message framework to spoof making payments
 - Find a way for the client to anticipate when traffic is about to be sent to a destination, and then send the request before allowing sending traffic
 - Create a new payment class to implement sending and receiving bitcoin
-- Implement the automatic server configuration, including enabling routing and DNS, probably using DHCP?
 - GTK is overkill for reading the config, so it would be better to find a universal dependency to read the config or else just parse it by hand
+- REFACTOR.
+- Implement the automatic server configuration, including enabling routing and DNS, probably using DHCP?
 - Implement use cases for renewing contracts
 - Smarter client behavior for making payments just in time
 - Smarter default client behavior for polling all interfaces and choosing the best deal

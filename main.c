@@ -158,7 +158,7 @@ void construct_message(char *message, T_STATE *current_state, const char *action
   sprintf(buf, "%u", (unsigned int)current_state->time_expiration);
   strcat(message,  buf);
   bzero(buffer, 16);
-} 
+}
 
 int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE payment_interface, T_NETWORK_INTERFACE network_interface) {
     char *argument = strsep(&message," ");
@@ -251,7 +251,8 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
     printf("Not ready to receive begin.\n");
       } else {
     current_state->status = COUNT_PACKETS;
-    network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, true);
+    //Is this really necessary? Commenting out for now
+    //network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, true);
       }
     } else if (strcmp(argument,"payment") == 0) {
       char *price_arg = strsep(&message," ");
@@ -281,7 +282,8 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
       } else {
     current_state->packets_delivered = strtol(count,NULL,10);
     if (!deliver_service(current_state)) {
-      network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, false);
+      //Pretty sure this is not necessary
+      //network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, false);
     }
 
     if (current_state->status == COUNT_PACKETS && renew_service(current_state)) {
