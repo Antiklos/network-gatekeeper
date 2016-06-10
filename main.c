@@ -353,7 +353,7 @@ int start(bool quiet)
   T_PAYMENT_INTERFACE payment_interface = payment_interfaces[config.payment_interface];
 
   /* Our process ID and Session ID */
-  pid_t pid,  sid;
+  pid_t pid, sid;
 
   /* Fork off the parent process */
   pid = fork();
@@ -420,7 +420,7 @@ int start(bool quiet)
   int default_port = LINK_UDP_DEFAULT_PORT;
   link_sockfd = create_udp_socket(&default_port);
 
-  network_interface.network_init();
+  pid_t net_pid = network_interface.network_init();
 
   //Set up loop for events
   T_STATE states[MAX_CONTRACTS];
@@ -578,7 +578,7 @@ int start(bool quiet)
   if (unlink(SOCK_PATH) < 0) {
     printf("ERROR deleting socket\n");
   }
-  network_interface.network_destroy();
+  network_interface.network_destroy(net_pid);
   exit(EXIT_SUCCESS);
   return 0;
 }

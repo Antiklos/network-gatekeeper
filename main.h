@@ -78,7 +78,7 @@ typedef struct S_NETWORK_INTERFACE {
   int identifier;
   pid_t (*network_init)();
   void (*gate_interface)(char *src_addr, char *dst_addr, time_t time_expiration, long int bytes);
-  void (*network_destroy)();
+  void (*network_destroy)(pid_t net_pid);
 } T_NETWORK_INTERFACE;
 
 typedef struct S_PAYMENT_INTERFACE {
