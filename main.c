@@ -263,7 +263,7 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
       } else {
     current_state->payment_sent += (int64_t)strtol(price_arg,NULL,10);
     if (deliver_service(current_state)) {
-      network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, true);
+      network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, current_state->time_expiration, 4096);
       if (current_state->status != BEGIN) {
         current_state->status = BEGIN;
         strcpy(current_message, current_state->address);
@@ -353,7 +353,7 @@ int start(bool quiet)
   T_PAYMENT_INTERFACE payment_interface = payment_interfaces[config.payment_interface];
 
   /* Our process ID and Session ID */
-  pid_t pid, sid;
+  pid_t pid,  sid;
 
   /* Fork off the parent process */
   pid = fork();

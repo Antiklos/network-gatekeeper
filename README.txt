@@ -35,7 +35,7 @@ An ngp daemon will never send a message to itself, but it's useful here to be ab
 If you want to test out a real communication in action, you'll need to set it up on two machines, and make sure that they are able to access each other over a network.
 Since we're using UDP for the communication, the two hosts don't need to be adjacent on the network.
 After you've tested that each of the hosts is able to run the daemon like described above, start the daemon and run this command:
-sudo ./ngp server "send 192.168.50.10 192.168.50.20 192.168.33.77 request"
+sudo ./ngp server "send 192.168.50.20 192.168.50.10 192.168.33.77 request"
 In this example, 192.168.50.10 is the client and 192.168.50.20 is the server, and 192.168.33.77 is the address the client wants the server to route its packets to.
 In the console output of both machines, you should see the description of what's happening similar to the output above.
 It will stop at the point where they have agreed upon terms, and the server is waiting for payment from the client.

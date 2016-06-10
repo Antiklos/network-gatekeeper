@@ -3,8 +3,7 @@
 #include "contract.h"
 
 bool deliver_service(T_STATE *state) {
-  time_t current_time;
-  time(&current_time);
+  time_t current_time = time(NULL);
   if (state->time_expiration < current_time) return false;
 
   long int packets_outstanding = state->payment_advance + state->packets_delivered;
@@ -13,8 +12,7 @@ bool deliver_service(T_STATE *state) {
 }
 
 bool renew_service(T_STATE *state) {
-  time_t current_time;
-  time(&current_time);
+  time_t current_time = time(NULL);
   if (state->time_expiration > current_time + TIME_TO_TX_CONFIRM) return false;
 
   long int expected_packets_delivered = state->packets_delivered + (TIME_TO_TX_CONFIRM*PACKET_THROUGHPUT);
@@ -26,8 +24,7 @@ bool renew_service(T_STATE *state) {
 void evaluate_request(T_STATE *state) {
   state->price = 5;
   state->payment_advance = 5;
-  time(&state->time_expiration);
-  state->time_expiration = state->time_expiration + 2;
+  state->time_expiration = time(NULL) + 60;
 }
 
 bool evaluate_propose(T_STATE *state) {

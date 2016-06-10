@@ -10,15 +10,41 @@ T_NETWORK_INTERFACE network_ipv4_interface() {
   return interface;
 }
 
-void network_ipv4_init() {
+pid_t network_ipv4_init() {
   //Probably want to turn on DHCP to allow for automatic network configuration
   //Also, find a way (spawn daemon? probably) to query iptables for packets passed through the open windows
   system("iptables -P FORWARD DROP");
+  //Make the interfaces that we whitelist configurable
+  system("iptables -I FORWARD -i wlan0 -j ACCEPT");
+
+  pid_t pid,sid;
+
+  pid = fork();
+  if (pid < 0) {
+    printf("Failure to spawn network daemon\n");
+    exit(EXIT_FAILURE);
+  } 
+  if (pid > 0) {
+    exit(EXIT_SUCCESS);
+  }
+
+  umask(0);
+  sid = setsid();
+  if (sid < 0) {
+    printf("Failure to set session id on network daemon\n");
+    exit(EXIT_FAILURE);
+  }
 }
 
-void gate_interface_ipv4(char *src_addr, char *dst_addr, time_t time_expiration) {
-  //Try out time and connbytes params for iptables to control the data and timestamps
-  printf("iptables -I FORWARD -i $(\"ip -o route get %s | awk '{ print $3 }'\") -d %s -m time --datestop $(date -d @%i +'%%Y%%m%%d%%H%%M%%S') -j ACCEPT",src_addr,dst_addr,(int)time_expiration);
+void gate_interface_ipv4(char *src_addr, char *dst_addr, time_t time_expiration, long int bytes) {
+  char buffer[CHAR_BUFFER_LEN];
+  char *time_string = buffer;
+  struct tm* tm_info = gmtime(&time_expiration);
+  strftime(time_string, 26, "%Y-%m-%dT%H:%M:%S", tm_info);
+  char buf[CHAR_BUFFER_LEN];
+  char *output = buf;
+  sprintf(output, "iptables -I FORWARD -i $(ip -o route get %s | awk '{ print $3 }') -d %s -m time --datestop %s -m connbytes --connbytes 0:%li --connbytes-dir both --connbytes-mode bytes -j ACCEPT\n",src_addr,dst_addr,time_string,bytes);
+  system(output);
 }
 
 void network_ipv4_destroy() {

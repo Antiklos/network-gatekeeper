@@ -76,8 +76,8 @@ typedef struct S_LINK_INTERFACE {
 
 typedef struct S_NETWORK_INTERFACE {
   int identifier;
-  void (*network_init)();
-  void (*gate_interface)(char *src_addr, char *dst_addr, time_t time_expiration);
+  pid_t (*network_init)();
+  void (*gate_interface)(char *src_addr, char *dst_addr, time_t time_expiration, long int bytes);
   void (*network_destroy)();
 } T_NETWORK_INTERFACE;
 
