@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
+#include <linux/if_ether.h>
+#include <linux/ip.h>
 
 #include "main.h"
 #include "link_test.c"
@@ -329,6 +331,18 @@ static T_STATE* find_state(T_STATE states[], int *new_contract, struct interface
   return current_state;
 }
 
+bool address_exists(T_STATE states[], int new_contract, char *address) {
+  int i;
+  for(i = 0; i < new_contract; i++) {
+    if (strcmp(states[i].address, address) == 0) {
+      printf("Address found already existing %s\n",address);
+      return true;
+    }
+  }
+  printf("For reference, the current number of states is %i\n",new_contract);
+  return false;
+}
+
 int start(bool quiet)
 {
   //Create interface arrays
@@ -399,28 +413,15 @@ int start(bool quiet)
 
   int cli_sockfd, link_sockfd;
   socklen_t clilen;
-  char buffer[CHAR_BUFFER_LEN];
   int result, n;
 
   //Set up socket for CLI communication
-  struct sockaddr_un serv_un_addr, current_addr;
-  cli_sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
-  if (cli_sockfd < 0) { 
-    printf("ERROR opening socket\n");
-  }
-  serv_un_addr.sun_family = AF_UNIX;
-  strncpy(serv_un_addr.sun_path, SOCK_PATH,strlen(SOCK_PATH));
-  result = bind(cli_sockfd, (struct sockaddr *) &serv_un_addr, strlen(SOCK_PATH) + 2);
-  if (result < 0) {
-    printf("Binding error %i getting CLI socket. Are you running as root?\n",result);
-    return 1;
-  }
+  int unix_udp_port = UNIX_UDP_PORT;
+  cli_sockfd = create_udp_socket(&unix_udp_port);
 
   //Set up socket for INET communication
   int default_port = LINK_UDP_DEFAULT_PORT;
   link_sockfd = create_udp_socket(&default_port);
-
-  pid_t net_pid = network_interface.network_init();
 
   //Set up loop for events
   T_STATE states[MAX_CONTRACTS];
@@ -434,56 +435,59 @@ int start(bool quiet)
   int status;
   struct sockaddr_in sock_addr;
   socklen_t sock_len = sizeof(sock_addr);
+
+  pid_t net_pid = network_interface.network_init(states, &new_contract);
+
+  int saddr_size, data_size;
+  struct sockaddr saddr;
+  int scan_sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+  if(scan_sockfd < 0)
+  {
+    printf("Error creating socket for sniffing packets\n");
+    return 1;
+  }
+  char buffer[PACKET_BUFFER_SIZE];
+
   while(command_result > -1) {
-    listen(cli_sockfd,2);
-    clilen = sizeof(current_addr);
-
-    //loop through all available sockets for any incoming messages
-    int fds[new_connection + 2];
-
-    for (i = 0; i < new_connection; i++) {
-      fds[i] = interface_ids[i].sockfd;
-    }
+    bzero(buffer,PACKET_BUFFER_SIZE);
+    data_size = 0;
+    int fds[new_connection + 3];
     fds[new_connection] = cli_sockfd;
     fds[new_connection + 1] = link_sockfd;
+    fds[new_connection + 2] = scan_sockfd;
 
-    FD_ZERO(&readfds);
-    maxfd = -1;
-    for (i = 0; i < new_connection + 2; i++) {
-        FD_SET(fds[i], &readfds);
-        if (fds[i] > maxfd) {
-            maxfd = fds[i];
-        }
+    for (i = 0; i < new_connection + 3; i++) {
+      data_size = recvfrom(fds[i] , buffer , PACKET_BUFFER_SIZE , MSG_DONTWAIT , &saddr , (socklen_t*)&saddr_size);
+      if (data_size > 0) {
+        fd = fds[i];
+        break;
+      }
     }
-    status = select(maxfd + 1, &readfds, NULL, NULL, NULL);
-    if (status < 0) {
-        printf("ERROR trying to read from an invalid socket\n");
-        command_result = -1;
-    }
-    fd = -1;
-    for (i = 0; i < new_connection + 2; i++)
-        if (FD_ISSET(fds[i], &readfds)) {
-            fd = fds[i];
-            break;
-        }
-    if (fd == -1) {
-      printf("ERROR trying to read from an invalid socket\n");
-      command_result = -1;
-    }
-    else {
-      bzero(buffer,CHAR_BUFFER_LEN);
-      if (fd == cli_sockfd) {
-        int current_sockfd = accept(fd, (struct sockaddr *) &current_addr, &clilen);
-        if (current_sockfd < 0) {
-          printf("ERROR on accept\n");
-          command_result = -1;
-        }
-        n = read(current_sockfd,buffer,CHAR_BUFFER_LEN);
-        if (n < 0) {
-          printf("ERROR reading from socket\n");
-          command_result = -1;
-        }
+    
+    if (data_size > 0) {
+      if (fd == scan_sockfd) {
+          struct iphdr *iph = (struct iphdr*)(buffer + sizeof(struct ethhdr));
+          struct sockaddr_in src_addr,dst_addr;
+     
+          memset(&src_addr, 0, sizeof(src_addr));
+          src_addr.sin_addr.s_addr = iph->saddr;
 
+          memset(&dst_addr, 0, sizeof(dst_addr));
+          dst_addr.sin_addr.s_addr = iph->daddr;
+
+          char src_address[CHAR_BUFFER_LEN];
+          strcpy(src_address, inet_ntoa(src_addr.sin_addr));
+          char dst_address[CHAR_BUFFER_LEN];
+          strcpy(dst_address, inet_ntoa(dst_addr.sin_addr));
+
+          if (!address_exists(states, new_contract, dst_address)) {
+            char msg_buffer[CHAR_BUFFER_LEN];
+            char *msg_buf = msg_buffer;
+            sprintf(msg_buf, "send %s 192.168.50.10 %s request",src_address,dst_address);
+            printf("%s\n",msg_buf);
+            send_cli_message(msg_buf);
+          }
+      } else if (fd == cli_sockfd) {
         char *message = buffer;
         char *argument = strsep(&message," ");
 
@@ -541,11 +545,6 @@ int start(bool quiet)
           printf("Invalid command sent to server.\n");
         }
       } else {
-        n = recvfrom(fd, buffer, CHAR_BUFFER_LEN, 0, (struct sockaddr *)&sock_addr, &sock_len);
-        if (n < 0) {
-          continue;
-        }
-
         char *message = buffer;
         struct interface_id_udp *current_interface = link_receive_message(interface_ids, &new_connection, fd, &message);
         //printf("Received message with address %s\n",inet_ntoa(sock_addr.sin_addr));
@@ -575,9 +574,7 @@ int start(bool quiet)
   }
   close(cli_sockfd);
   close(link_sockfd);
-  if (unlink(SOCK_PATH) < 0) {
-    printf("ERROR deleting socket\n");
-  }
+  close(scan_sockfd);
   network_interface.network_destroy(net_pid);
   exit(EXIT_SUCCESS);
   return 0;
@@ -585,29 +582,16 @@ int start(bool quiet)
 
 int send_cli_message(char *message)
 {
-  int sockfd, n;
-  struct sockaddr_un serv_addr;
-  bzero((char *) &serv_addr, sizeof(serv_addr));
-  char buffer[CHAR_BUFFER_LEN];
-  bzero(buffer,CHAR_BUFFER_LEN);
-  sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
-  if (sockfd < 0) {
-      printf("ERROR opening socket\n");
-      exit(0);
+  struct sockaddr_in serv_addr;
+  int sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  serv_addr.sin_family = AF_INET;
+  serv_addr.sin_port = htons(UNIX_UDP_PORT);
+  inet_aton("127.0.0.1", &serv_addr.sin_addr);
+  int result = sendto(sockfd, message, strlen(message), 0, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
+  if (result < 0) {
+    printf("send cli message failed\n");
+    return 1;
   }
-  serv_addr.sun_family = AF_UNIX;
-  strncpy(serv_addr.sun_path, SOCK_PATH, strlen(SOCK_PATH));
-  if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) {
-      printf("ERROR connecting. Are you running as root?\n");
-      exit(0);
-  }
-  strncpy(buffer, message, strlen(message));
-  n = write_buffer(sockfd,buffer);
-  if (n < 0) {
-       printf("ERROR writing to socket\n");
-       exit(0);
-  }
-  close(sockfd);
   return 0;
 }
 

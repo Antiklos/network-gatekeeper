@@ -75,10 +75,10 @@ Each message is an interaction between what we'll call a "client" and "server". 
 <--begin    The server responds, letting the client know that they may begin sending network packets
 
 Work to be done:
-- Implement the gating of network traffic from the network_ipv4 class using iptables
-- Find a way for the client to anticipate when traffic is about to be sent to a destination, and then send the request before allowing sending traffic
+- Use a NETLINK socket to look up the route of packets that have been sniffed to figure out where to send the request udp message to
 - Create a new payment class to implement sending and receiving bitcoin
 - GTK is overkill for reading the config, so it would be better to find a universal dependency to read the config or else just parse it by hand
+- Move the cli_socket to a unix socket instead of inet
 - REFACTOR.
 - Implement the automatic server configuration, including enabling routing and DNS, probably using DHCP?
 - Implement use cases for renewing contracts

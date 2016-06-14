@@ -10,7 +10,7 @@
 
 T_NETWORK_INTERFACE network_ipv4_interface();
 
-pid_t network_ipv4_init();
+pid_t network_ipv4_init(T_STATE states[], int *new_connection);
 
 void gate_interface_ipv4(char *src_addr, char *dst_addr, time_t time_expiration, long int bytes);
 

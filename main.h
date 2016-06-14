@@ -22,6 +22,9 @@
 #define MAX_INTERFACE_LEN 256
 #define MAX_ADDRESS_LEN 256
 
+// This needs to be made to be available local only
+#define UNIX_UDP_PORT 33546
+
 //The following three are assumptions for testing that should be eventually calculated dynamically
 #define MAX_PAYMENT 1000
 #define TIME_TO_TX_CONFIRM 5
@@ -76,7 +79,7 @@ typedef struct S_LINK_INTERFACE {
 
 typedef struct S_NETWORK_INTERFACE {
   int identifier;
-  pid_t (*network_init)();
+  pid_t (*network_init)(T_STATE states[], int *new_connection);
   void (*gate_interface)(char *src_addr, char *dst_addr, time_t time_expiration, long int bytes);
   void (*network_destroy)(pid_t net_pid);
 } T_NETWORK_INTERFACE;
