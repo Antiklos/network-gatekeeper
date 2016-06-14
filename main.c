@@ -335,11 +335,9 @@ bool address_exists(T_STATE states[], int new_contract, char *address) {
   int i;
   for(i = 0; i < new_contract; i++) {
     if (strcmp(states[i].address, address) == 0) {
-      printf("Address found already existing %s\n",address);
       return true;
     }
   }
-  printf("For reference, the current number of states is %i\n",new_contract);
   return false;
 }
 
@@ -484,7 +482,6 @@ int start(bool quiet)
             char msg_buffer[CHAR_BUFFER_LEN];
             char *msg_buf = msg_buffer;
             sprintf(msg_buf, "send %s 192.168.50.10 %s request",src_address,dst_address);
-            printf("%s\n",msg_buf);
             send_cli_message(msg_buf);
           }
       } else if (fd == cli_sockfd) {
