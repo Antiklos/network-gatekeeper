@@ -451,6 +451,9 @@ int start(bool quiet)
     bzero(buffer,PACKET_BUFFER_SIZE);
     data_size = 0;
     int fds[new_connection + 3];
+    for (i = 0; i < new_connection; i++) {
+      fds[i] = interface_ids[i].sockfd;
+    }
     fds[new_connection] = cli_sockfd;
     fds[new_connection + 1] = link_sockfd;
     fds[new_connection + 2] = scan_sockfd;
