@@ -73,6 +73,7 @@ struct interface_id_udp* find_interface(struct interface_id_udp interfaces[], in
       }
       strcpy(current_interface->ip_addr_dst, ip_addr_dst);
       current_interface->outgoing_port = LINK_UDP_DEFAULT_PORT;
+      current_interface->incoming_port = 0;
       current_interface->sockfd = create_udp_socket(&current_interface->incoming_port);
       if (current_interface->sockfd < 0) {
         return NULL;
@@ -481,8 +482,8 @@ int start(bool quiet)
           if (!address_exists(states, new_contract, dst_address)) {
             char msg_buffer[CHAR_BUFFER_LEN];
             char *msg_buf = msg_buffer;
-            sprintf(msg_buf, "send %s 192.168.50.10 %s request",src_address,dst_address);
-            send_cli_message(msg_buf);
+            //sprintf(msg_buf, "send %s 192.168.50.10 %s request",src_address,dst_address);
+            //send_cli_message(msg_buf);
           }
       } else if (fd == cli_sockfd) {
         char *message = buffer;
