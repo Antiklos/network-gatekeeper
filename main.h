@@ -36,6 +36,14 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+struct route_info
+{
+  struct in_addr dstAddr;
+  struct in_addr srcAddr;
+  struct in_addr gateWay;
+  char ifName[IF_NAMESIZE];
+};
+
 struct interface_id_udp {
   char interface[MAX_INTERFACE_LEN];
   char ip_addr_src[16];
