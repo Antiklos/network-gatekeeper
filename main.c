@@ -39,6 +39,10 @@ static T_CONFIG read_config()
   strsep(&buffer,"=");
   config.payment_interface = (int)strtol(buffer,NULL,10);
 
+  fscanf(file,"%s\n",buffer);
+  strsep(&buffer,"=");
+  strcpy(config.ngp_interface,buffer);
+
   return config;
 }
 
@@ -671,10 +675,9 @@ int start(bool quiet)
             char next_hop_addr[CHAR_BUFFER_LEN];
             char *next_hop = next_hop_addr;
             route_lookup(dst_address, next_hop);
-            if (strcmp("0.0.0.0",next_hop) != 0 &&
+            if (strcmp(config.ngp_interface,next_hop) != 0 &&
                 strcmp("127.0.0.1",dst_address) != 0 &&
-                strcmp(dst_address,next_hop) != 0 &&
-                strcmp(local_addr,dst_address) != 0) {
+                strcmp(dst_address,next_hop) != 0) {
               //sprintf(msg_buf, "send %s %s %s request",src_address,next_hop,dst_address);
               //send_cli_message(msg_buf);
             }

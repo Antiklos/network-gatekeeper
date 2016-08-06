@@ -70,6 +70,7 @@ typedef struct S_CONFIG {
   int link_interface;
   int network_interface;
   int payment_interface;
+  char ngp_interface[MAX_INTERFACE_LEN];
 } T_CONFIG;
 
 typedef struct S_LINK_INTERFACE {
