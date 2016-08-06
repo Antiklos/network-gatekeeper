@@ -1,7 +1,6 @@
 #include <stdbool.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <glib.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
@@ -22,29 +21,24 @@
 
 static T_CONFIG read_config()
 {
-  GKeyFile* gkf = g_key_file_new();
-  GError* error = NULL;
-
-  char* filename = (gchar*)malloc(256 * sizeof(gchar));
-  strcpy(filename, "net.conf");
-  const gchar* conf_file = filename;
-
-  if (!g_key_file_load_from_file(gkf, conf_file, G_KEY_FILE_NONE, &error)){
-    fprintf (stderr, "Could not read config file %s\n", conf_file);
-  }
-
-  gchar *link_value = g_key_file_get_value(gkf, "Group", "LINK_INTERFACE", NULL);
-  gchar *network_value = g_key_file_get_value(gkf, "Group", "NETWORK_INTERFACE", NULL);
-  gchar *payment_value = g_key_file_get_value(gkf, "Group", "PAYMENT_INTERFACE", NULL);
-  gchar *user_value = g_key_file_get_value(gkf, "Group", "USER_INTERFACE", NULL);
-
-  g_key_file_free(gkf);
-  free(filename);
-
   T_CONFIG config;
-  config.link_interface = (int)strtol(link_value,NULL,10);
-  config.network_interface = (int)strtol(network_value,NULL,10);
-  config.payment_interface = (int)strtol(payment_value,NULL,10);
+  FILE *file;
+  char filebuf[1024];
+  file = fopen("net.conf","r");
+  char *buffer = filebuf;
+
+  fscanf(file,"%s\n",buffer);
+  strsep(&buffer,"=");
+  config.link_interface = (int)strtol(buffer,NULL,10);
+
+  fscanf(file,"%s\n",buffer);
+  strsep(&buffer,"=");
+  config.network_interface = (int)strtol(buffer,NULL,10);
+  
+  fscanf(file,"%s\n",buffer);
+  strsep(&buffer,"=");
+  config.payment_interface = (int)strtol(buffer,NULL,10);
+
   return config;
 }
 

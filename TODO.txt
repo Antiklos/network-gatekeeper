@@ -1,0 +1,9 @@
+- Implement a grace period in the contract class
+- REFACTOR.
+- Create a new payment class to implement sending and receiving bitcoin
+- Move the cli_socket to a unix socket instead of inet?
+- Implement the automatic server configuration, including enabling routing and DNS, probably using DHCP?
+- Implement use cases for renewing contracts
+- Smarter client behavior for making payments just in time
+- Smarter default client behavior for polling all interfaces and choosing the best deal
+- GUI for config and other things
