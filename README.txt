@@ -77,11 +77,10 @@ Each message is an interaction between what we'll call a "client" and "server". 
 Work to be done:
 - Implement a delay in the payment_simulate class
 - Implement a grace period in the contract class
+- REFACTOR.
 - GTK is overkill for reading the config, so it would be better to find a universal dependency to read the config or else just parse it by hand
-- Use a NETLINK socket to look up the destination when setting iptables rule
 - Create a new payment class to implement sending and receiving bitcoin
 - Move the cli_socket to a unix socket instead of inet?
-- REFACTOR.
 - Implement the automatic server configuration, including enabling routing and DNS, probably using DHCP?
 - Implement use cases for renewing contracts
 - Smarter client behavior for making payments just in time

@@ -9,6 +9,7 @@
 #include <linux/ip.h>
 #include <net/if.h>
 #include <linux/rtnetlink.h>
+#include <ifaddrs.h>
 
 #include "main.h"
 #include "link_test.c"
@@ -212,7 +213,18 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
       sprintf(payment_buffer, "%lli ", (long long int)payment);
       strcat(current_message, payment_buffer);
       payment_interface.send_payment(current_state->interface_id->ip_addr_dst, current_state->address, payment);
-      link_send_message(current_state->interface_id, current_message);
+      
+      //Wait a bit to send payment to simulate delay
+      pid_t pay_pid;
+      pay_pid = fork();
+      if (pay_pid == 0) {
+        printf("Forking to send payment\n");
+        sleep(5);
+        printf("Sending message for payment now\n");
+        link_send_message(current_state->interface_id, current_message);
+        exit(EXIT_SUCCESS);
+      }
+
       current_state->payment_sent += payment;
     } else {
       current_state->status = REJECT;
@@ -342,6 +354,28 @@ bool address_exists(T_STATE states[], int new_contract, char *address) {
     }
   }
   return false;
+}
+
+int get_local_ip_addr(char *address) {
+  struct ifaddrs *addrs, *tmpaddr;
+  getifaddrs(&addrs);
+  tmpaddr = addrs;
+
+  while (tmpaddr) 
+  {
+    if (tmpaddr->ifa_addr != NULL && tmpaddr->ifa_addr->sa_family == AF_INET)
+    {
+        struct sockaddr_in *pAddr = (struct sockaddr_in *)tmpaddr->ifa_addr;
+        if (strcmp(tmpaddr->ifa_name,"eth0") == 0) {
+          strcpy(address, inet_ntoa(pAddr->sin_addr));
+        }
+    }
+
+    tmpaddr = tmpaddr->ifa_next;
+  }
+
+  freeifaddrs(addrs);
+  return 0;
 }
 
 int readNlSock(int sockFd, char *bufPtr, size_t buf_size, int seqNum, int pId)
@@ -634,13 +668,21 @@ int start(bool quiet)
           strcpy(dst_address, inet_ntoa(dst_addr.sin_addr));
 
           if (!address_exists(states, new_contract, dst_address)) {
+            char addr_buffer[CHAR_BUFFER_LEN];
+            char *local_addr = addr_buffer;
+            get_local_ip_addr(local_addr);
             char msg_buffer[CHAR_BUFFER_LEN];
             char *msg_buf = msg_buffer;
             char next_hop_addr[CHAR_BUFFER_LEN];
             char *next_hop = next_hop_addr;
             route_lookup(dst_address, next_hop);
-            //sprintf(msg_buf, "send %s %s %s request",src_address,next_hop,dst_address);
-            //send_cli_message(msg_buf);
+            if (strcmp("0.0.0.0",next_hop) != 0 &&
+                strcmp("127.0.0.1",dst_address) != 0 &&
+                strcmp(dst_address,next_hop) != 0 &&
+                strcmp(local_addr,dst_address) != 0) {
+              //sprintf(msg_buf, "send %s %s %s request",src_address,dst_address,next_hop);
+              //send_cli_message(msg_buf);
+            }
           }
       } else if (fd == cli_sockfd) {
         char *message = buffer;
