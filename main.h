@@ -76,19 +76,16 @@ typedef struct S_CONFIG {
 typedef struct S_LINK_INTERFACE {
   int identifier;
   void (*link_init)();
-  char* (*link_receive)(struct interface_id_udp *interface_id);
-  void (*send_request)(struct interface_id_udp *interface_id, char *address);
-  void (*send_propose)(struct interface_id_udp *interface_id, char *address, int64_t price, long int payment_advance, time_t time_expiration);
-  void (*send_accept)(struct interface_id_udp *interface_id, char *address);
-  void (*send_reject)(struct interface_id_udp *interface_id, char *address, int64_t price, long int payment_advance, time_t time_expiration);
-  void (*send_begin)(struct interface_id_udp *interface_id, char *address);
-  void (*send_stop)();
+  struct interface_id_udp* (*link_find_interface)(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char *ip_addr_src, char *ip_addr_dst);
+  struct interface_id_udp* (*link_receive)(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char** message);
+  void (*link_send)(struct interface_id_udp *interface_id, char *message);
   void (*link_destroy)();
 } T_LINK_INTERFACE;
 
 typedef struct S_NETWORK_INTERFACE {
   int identifier;
   pid_t (*network_init)(T_STATE states[], int *new_connection);
+  int (*sniff_datagram)(char *buffer, char **src_addr, char **dst_addr, char **next_hop, char *ngp_interface);
   void (*gate_interface)(char *src_addr, char *dst_addr, time_t time_expiration, long int bytes);
   void (*network_destroy)(pid_t net_pid);
 } T_NETWORK_INTERFACE;
@@ -102,7 +99,6 @@ typedef struct S_PAYMENT_INTERFACE {
 
 static T_CONFIG read_config();
 
-static int write_buffer(int sockfd, const char* message);
 int send_cli_message();
 static T_STATE* find_state(T_STATE states[], int *new_contract, struct interface_id_udp *interface_id, char *address);
 

@@ -6,6 +6,7 @@
 T_NETWORK_INTERFACE network_test_interface() {
   T_NETWORK_INTERFACE interface;
   interface.network_init = &network_test_init;
+  interface.sniff_datagram = &sniff_datagram_test;
   interface.gate_interface = &gate_interface_test;
   interface.network_destroy = &network_test_destroy;
   return interface;
@@ -13,6 +14,9 @@ T_NETWORK_INTERFACE network_test_interface() {
 
 pid_t network_test_init(T_STATE states[], int *new_connection) {
   printf("Executing network_test_init\n");
+}
+
+int sniff_datagram_test(char *buffer, char **src_addr, char **dst_addr, char **next_hop, char *ngp_interface) {
 }
 
 void gate_interface_test(char *src_addr, char *dst_addr, time_t time_expiration, long int bytes) {

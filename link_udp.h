@@ -12,17 +12,11 @@ T_LINK_INTERFACE link_udp_interface();
 
 void link_udp_init();
 
-char* link_receive_udp(struct interface_id_udp *interface_id);
+struct interface_id_udp* link_find_interface_udp(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char *ip_addr_src, char *ip_addr_dst);
 
-void send_request_udp(struct interface_id_udp *interface_id, char *address);
+struct interface_id_udp* link_receive_udp(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char** message);
 
-void send_propose_udp(struct interface_id_udp *interface_id, char *address, int64_t price, long int payment_advance, time_t time_expiration);
-
-void send_accept_udp(struct interface_id_udp *interface_id, char *address);
-
-void send_reject_udp(struct interface_id_udp *interface_id, char *address, int64_t price, long int payment_advance, time_t time_expiration);
-
-void send_begin_udp(struct interface_id_udp *interface_id, char *address);
+void link_send_udp(struct interface_id_udp *interface_id, char *message);
 
 void link_udp_destroy();
 

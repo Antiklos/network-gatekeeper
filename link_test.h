@@ -10,15 +10,11 @@ T_LINK_INTERFACE link_test_interface();
 
 void link_test_init();
 
-void send_request_test(struct interface_id_udp *interface_id, char *address);
+struct interface_id_udp* link_find_interface_test(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char *ip_addr_src, char *ip_addr_dst);
 
-void send_propose_test(struct interface_id_udp *interface_id, char *address, int64_t price, long int payment_advance, time_t time_expiration);
+struct interface_id_udp* link_receive_test(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char** message);
 
-void send_accept_test(struct interface_id_udp *interface_id, char *address);
-
-void send_reject_test(struct interface_id_udp *interface_id, char *address, int64_t price, long int payment_advance, time_t time_expiration);
-
-void send_begin_test(struct interface_id_udp *interface_id, char *address);
+void link_send_test(struct interface_id_udp *interface_id, char *message);
 
 void link_test_destroy();
 

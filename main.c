@@ -46,85 +46,6 @@ static T_CONFIG read_config()
   return config;
 }
 
-static int write_buffer(int sockfd, const char* message)
-{
-  return write(sockfd,message,strlen(message));
-}
-
-struct interface_id_udp* find_interface(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char *ip_addr_src, char *ip_addr_dst) {
-    struct interface_id_udp *current_interface = NULL;
-    int i;
-    for (i = 0; i < *new_connection; i++) {
-      if (interfaces[i].sockfd == sockfd) {
-      current_interface = &interfaces[i];
-      printf("Found previous interface for ip_addr %s outport %u inport %u and sockfd %i\n",
-        current_interface->ip_addr_dst, current_interface->outgoing_port, current_interface->incoming_port, current_interface->sockfd);
-      //break;
-      }
-    }
-    if (current_interface == NULL) {
-      if (ip_addr_dst == NULL || ip_addr_dst == "") {
-        printf("Must provide ip_addr for new interfaces\n");
-        return NULL;
-      }
-      current_interface = &interfaces[*new_connection];
-      *new_connection = *new_connection + 1;
-      if (ip_addr_src != NULL) {
-        strcpy(current_interface->ip_addr_src, ip_addr_src);
-      }
-      strcpy(current_interface->ip_addr_dst, ip_addr_dst);
-      current_interface->outgoing_port = LINK_UDP_DEFAULT_PORT;
-      current_interface->incoming_port = 0;
-      current_interface->sockfd = create_udp_socket(&current_interface->incoming_port);
-      if (current_interface->sockfd < 0) {
-        return NULL;
-      }
-      printf("Creating new interface for ip_addr %s outport %u inport %u and sockfd %i\n",
-        current_interface->ip_addr_dst, current_interface->outgoing_port, current_interface->incoming_port, current_interface->sockfd);
-    }
-
-    return current_interface;
-}
-
-void link_send_message(struct interface_id_udp *interface_id, char *message) {
-  printf("About to send message: %s\n",message);
-  char buffer[CHAR_BUFFER_LEN];
-  strcpy(buffer, interface_id->ip_addr_src);
-  char port[8];
-  sprintf(port, " %u ", interface_id->incoming_port);
-  strcat(buffer, port);
-  strcat(buffer, message);
-  message = buffer;
-
-  printf("About to send raw message: %s\n",message);
-  struct sockaddr_in serv_addr;
-  int sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-  serv_addr.sin_family = AF_INET;
-  serv_addr.sin_port = htons(interface_id->outgoing_port);
-  inet_aton(interface_id->ip_addr_dst, &serv_addr.sin_addr);
-  int result = sendto(sockfd, message, strlen(message), 0, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
-  if (result < 0) {
-    printf("send_request_udp failed\n");
-  }
-}
-
-struct interface_id_udp* link_receive_message(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char** message) {
-  printf("Received raw message: %s\n",*message);
-  char *ip_addr = strsep(message," ");
-  if (ip_addr == NULL) {
-    printf("No ip_addr provided.\n");
-    return NULL;
-  }
-  char *port = strsep(message," ");
-  if (port == NULL) {
-    printf("No port provided.\n");
-    return NULL;
-  }
-  struct interface_id_udp *current_interface = find_interface(interfaces, new_connection, sockfd, NULL, ip_addr);
-  current_interface->outgoing_port = (unsigned int)strtol(port,NULL,10);
-  return current_interface;
-}
-
 int create_udp_socket(unsigned int *port) {
   struct sockaddr_in serv_in_addr;
   int sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -164,7 +85,7 @@ void construct_message(char *message, T_STATE *current_state, const char *action
   bzero(buffer, 16);
 }
 
-int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE payment_interface, T_NETWORK_INTERFACE network_interface) {
+int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_interface, T_PAYMENT_INTERFACE payment_interface, T_NETWORK_INTERFACE network_interface) {
     char *argument = strsep(&message," ");
     char buffer[CHAR_BUFFER_LEN];
     char *current_message = buffer;
@@ -177,7 +98,7 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
     evaluate_request(current_state);
     current_state->status = PROPOSE;
     construct_message(current_message, current_state, "propose");
-    link_send_message(current_state->interface_id, current_message);
+    link_interface.link_send(current_state->interface_id, current_message);
     //link_interface.send_propose(current_state->interface_id->ip_addr, current_state->address,
       //current_state->price, current_state->payment_advance, current_state->time_expiration);
       }
@@ -201,7 +122,7 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
       current_state->status = ACCEPT;
       strcpy(current_message, current_state->address);
       strcat(current_message, " accept");
-      link_send_message(current_state->interface_id, current_message);
+      link_interface.link_send(current_state->interface_id, current_message);
       //link_interface.send_accept(current_state->interface_id->ip_addr, current_state->address);
       int64_t payment = MAX_PAYMENT;
       strcpy(current_message, current_state->address);
@@ -219,7 +140,7 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
         printf("Forking to send payment\n");
         sleep(5);
         printf("Sending message for payment now\n");
-        link_send_message(current_state->interface_id, current_message);
+        link_interface.link_send(current_state->interface_id, current_message);
         exit(EXIT_SUCCESS);
       }
 
@@ -227,7 +148,7 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
     } else {
       current_state->status = REJECT;
       construct_message(current_message, current_state, "reject");
-      link_send_message(current_state->interface_id, current_message);
+      link_interface.link_send(current_state->interface_id, current_message);
       //link_interface.send_reject(current_state->interface_id->ip_addr, current_state->address,
         //current_state->price, current_state->payment_advance, current_state->time_expiration);
     }
@@ -256,7 +177,7 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
     current_state->time_expiration = (time_t)strtol(time_expiration,NULL,10);
     evaluate_reject(current_state);
     construct_message(current_message, current_state, "propose");
-    link_send_message(current_state->interface_id, current_message);
+    link_interface.link_send(current_state->interface_id, current_message);
     //link_interface.send_propose(current_state->interface_id->ip_addr, current_state->address,
       //current_state->price, current_state->payment_advance, current_state->time_expiration);
     current_state->status = PROPOSE;
@@ -283,7 +204,7 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
         current_state->status = BEGIN;
         strcpy(current_message, current_state->address);
         strcat(current_message, " begin");
-        link_send_message(current_state->interface_id, current_message);
+        link_interface.link_send(current_state->interface_id, current_message);
         //link_interface.send_begin(current_state->interface_id->ip_addr, current_state->address);
       }
     }
@@ -310,7 +231,7 @@ int parse_message(T_STATE *current_state, char *message, T_PAYMENT_INTERFACE pay
       sprintf(payment_buffer, "%lli ", (long long int)payment);
       strcat(current_message, payment_buffer);
       payment_interface.send_payment(current_state->interface_id->ip_addr_dst, current_state->address, payment);
-      link_send_message(current_state->interface_id, current_message);
+      link_interface.link_send(current_state->interface_id, current_message);
       current_state->payment_sent += payment;
     }
       }
@@ -342,188 +263,6 @@ static T_STATE* find_state(T_STATE states[], int *new_contract, struct interface
   }
 
   return current_state;
-}
-
-bool address_exists(T_STATE states[], int new_contract, char *address) {
-  int i;
-  for(i = 0; i < new_contract; i++) {
-    if (strcmp(states[i].address, address) == 0) {
-      return true;
-    }
-  }
-  return false;
-}
-
-int get_local_ip_addr(char *address) {
-  struct ifaddrs *addrs, *tmpaddr;
-  getifaddrs(&addrs);
-  tmpaddr = addrs;
-
-  while (tmpaddr) 
-  {
-    if (tmpaddr->ifa_addr != NULL && tmpaddr->ifa_addr->sa_family == AF_INET)
-    {
-        struct sockaddr_in *pAddr = (struct sockaddr_in *)tmpaddr->ifa_addr;
-        if (strcmp(tmpaddr->ifa_name,"eth0") == 0) {
-          strcpy(address, inet_ntoa(pAddr->sin_addr));
-          break;
-        }
-    }
-
-    tmpaddr = tmpaddr->ifa_next;
-  }
-
-  freeifaddrs(addrs);
-  return 0;
-}
-
-int readNlSock(int sockFd, char *bufPtr, size_t buf_size, int seqNum, int pId)
-{
-  struct nlmsghdr *nlHdr;
-  int readLen = 0, msgLen = 0;
-
-  do
-  {
-    /* Recieve response from the kernel */
-    if((readLen = recv(sockFd, bufPtr, buf_size - msgLen, 0)) < 0)
-    {
-      perror("SOCK READ: ");
-      return -1;
-    }
-
-    nlHdr = (struct nlmsghdr *)bufPtr;
-
-    /* Check if the header is valid */
-    if((NLMSG_OK(nlHdr, readLen) == 0) || (nlHdr->nlmsg_type == NLMSG_ERROR))
-    {
-      perror("Error in recieved packet");
-      return -1;
-    }
-
-    /* Check if the its the last message */
-    if(nlHdr->nlmsg_type == NLMSG_DONE)
-    {
-      break;
-    }
-    else
-    {
-      /* Else move the pointer to buffer appropriately */
-      bufPtr += readLen;
-      msgLen += readLen;
-    }
-
-    /* Check if it's a multi part message */
-    if((nlHdr->nlmsg_flags & NLM_F_MULTI) == 0)
-    {
-      /* return if it's not */
-      break;
-    }
-  }
-  while((nlHdr->nlmsg_seq != seqNum) || (nlHdr->nlmsg_pid != pId));
-
-  return msgLen;
-}
-
-int parseRoutes(struct nlmsghdr *nlHdr, struct route_info *rtInfo)
-{
-  struct rtmsg *rtMsg;
-  struct rtattr *rtAttr;
-  int rtLen;
-
-  rtMsg = (struct rtmsg *)NLMSG_DATA(nlHdr);
-
-  /* If the route is not for AF_INET or does not belong to main routing table then return. */
-  if((rtMsg->rtm_family != AF_INET) || (rtMsg->rtm_table != RT_TABLE_MAIN))
-    return -1;
-
-  /* get the rtattr field */
-  rtAttr = (struct rtattr *)RTM_RTA(rtMsg);
-  rtLen = RTM_PAYLOAD(nlHdr);
-
-  for(; RTA_OK(rtAttr,rtLen); rtAttr = RTA_NEXT(rtAttr,rtLen))
-  {
-    switch(rtAttr->rta_type)
-    {
-    case RTA_OIF:
-      if_indextoname(*(int *)RTA_DATA(rtAttr), rtInfo->ifName);
-      break;
-
-    case RTA_GATEWAY:
-      memcpy(&rtInfo->gateWay, RTA_DATA(rtAttr), sizeof(rtInfo->gateWay));
-      break;
-
-    case RTA_PREFSRC:
-      memcpy(&rtInfo->srcAddr, RTA_DATA(rtAttr), sizeof(rtInfo->srcAddr));
-      break;
-
-    case RTA_DST:
-      memcpy(&rtInfo->dstAddr, RTA_DATA(rtAttr), sizeof(rtInfo->dstAddr));
-      break;
-    }
-  }
-
-  return 0;
-}
-
-int route_lookup(char *address, char *next_hop) {
-  int found_gatewayip = 0;
-
-  struct nlmsghdr *nlMsg;
-  struct rtmsg *rtMsg;
-  struct route_info route_info;
-  char msgBuf[PACKET_BUFFER_SIZE]; // pretty large buffer
-
-  int sock, len, msgSeq = 0;
-
-  /* Create Socket */
-  if((sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE)) < 0)
-  {
-    perror("Socket Creation: ");
-    return(-1);
-  }
-
-  /* Initialize the buffer */
-  memset(msgBuf, 0, sizeof(msgBuf));
-
-  /* point the header and the msg structure pointers into the buffer */
-  nlMsg = (struct nlmsghdr *)msgBuf;
-  rtMsg = (struct rtmsg *)NLMSG_DATA(nlMsg);
-
-  /* Fill in the nlmsg header*/
-  nlMsg->nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg)); // Length of message.
-  nlMsg->nlmsg_type = RTM_GETROUTE; // Get the routes from kernel routing table .
-
-  nlMsg->nlmsg_flags = NLM_F_DUMP | NLM_F_REQUEST; // The message is a request for dump.
-  nlMsg->nlmsg_seq = msgSeq++; // Sequence of the message packet.
-  nlMsg->nlmsg_pid = getpid(); // PID of process sending the request.
-
-  /* Send the request */
-  if(send(sock, nlMsg, nlMsg->nlmsg_len, 0) < 0)
-  {
-    fprintf(stderr, "Write To Socket Failed...\n");
-    return -1;
-  }
-
-  /* Read the response */
-  if((len = readNlSock(sock, msgBuf, sizeof(msgBuf), msgSeq, getpid())) < 0)
-  {
-    fprintf(stderr, "Read From Socket Failed...\n");
-    return -1;
-  }
-
-  /* Parse and print the response */
-  for(; NLMSG_OK(nlMsg,len); nlMsg = NLMSG_NEXT(nlMsg,len))
-  {
-    memset(&route_info, 0, sizeof(route_info));
-    if ( parseRoutes(nlMsg, &route_info) < 0 )
-      continue;  // don't check route_info if it has not been set up
-
-    strcpy(next_hop,inet_ntoa(route_info.gateWay));
-    close(sock);
-    return 1;
-  }
-
-  return found_gatewayip;
 }
 
 int start(bool quiet)
@@ -652,36 +391,24 @@ int start(bool quiet)
     
     if (data_size > 0) {
       if (fd == scan_sockfd) {
-          struct iphdr *iph = (struct iphdr*)(buffer + sizeof(struct ethhdr));
-          struct sockaddr_in src_addr,dst_addr;
-     
-          memset(&src_addr, 0, sizeof(src_addr));
-          src_addr.sin_addr.s_addr = iph->saddr;
-
-          memset(&dst_addr, 0, sizeof(dst_addr));
-          dst_addr.sin_addr.s_addr = iph->daddr;
-
-          char src_address[CHAR_BUFFER_LEN];
-          strcpy(src_address, inet_ntoa(src_addr.sin_addr));
-          char dst_address[CHAR_BUFFER_LEN];
-          strcpy(dst_address, inet_ntoa(dst_addr.sin_addr));
-
-          if (!address_exists(states, new_contract, dst_address)) {
-            char addr_buffer[CHAR_BUFFER_LEN];
-            char *local_addr = addr_buffer;
-            get_local_ip_addr(local_addr);
-            char msg_buffer[CHAR_BUFFER_LEN];
-            char *msg_buf = msg_buffer;
-            char next_hop_addr[CHAR_BUFFER_LEN];
-            char *next_hop = next_hop_addr;
-            route_lookup(dst_address, next_hop);
-            if (strcmp(config.ngp_interface,next_hop) != 0 &&
-                strcmp("127.0.0.1",dst_address) != 0 &&
-                strcmp(dst_address,next_hop) != 0) {
-              //sprintf(msg_buf, "send %s %s %s request",src_address,next_hop,dst_address);
-              //send_cli_message(msg_buf);
-            }
+        char src_address[CHAR_BUFFER_LEN];
+        char *src = src_address;
+        char dst_address[CHAR_BUFFER_LEN];
+        char *dst = dst_address;
+        char next_hop_address[CHAR_BUFFER_LEN];
+        char *next_hop = next_hop_address;
+         
+        if (network_interface.sniff_datagram(buffer,&src,&dst,&next_hop,config.ngp_interface) == 1) {
+          struct interface_id_udp *current_interface = link_interface.link_find_interface(interface_ids, &new_connection, 0, src, next_hop);
+          T_STATE *current_state = find_state(states, &new_contract, current_interface, dst);
+              
+          if (current_state->status == DEFAULT) {
+            current_state->status = REQUEST;
+            char message[CHAR_BUFFER_LEN];
+            sprintf(&message[0],"%s request",dst);
+            link_interface.link_send(current_interface, message);
           }
+        }
       } else if (fd == cli_sockfd) {
         char *message = buffer;
         char *argument = strsep(&message," ");
@@ -706,7 +433,7 @@ int start(bool quiet)
           } else if (address == NULL) {
             printf("No address provided.\n");
           } else {
-            struct interface_id_udp *current_interface = find_interface(interface_ids, &new_connection, 0, ip_addr_src, ip_addr_dst);
+            struct interface_id_udp *current_interface = link_interface.link_find_interface(interface_ids, &new_connection, 0, ip_addr_src, ip_addr_dst);
             if (current_interface == NULL) {
               printf("Unable to find current interface for argument %s\n",argument);
             } else {
@@ -717,7 +444,7 @@ int start(bool quiet)
                 printf("No message sent to receive.\n");
               } else if (strcmp(argument,"request") == 0) {
                 current_state->status = REQUEST;
-                link_send_message(current_interface, address_with_message);
+                link_interface.link_send(current_interface, address_with_message);
               } else if (strcmp(argument,"stop") == 0) {
                 if (current_state->status != COUNT_PACKETS) {
                   printf("Not ready to stop contract.\n");
@@ -730,18 +457,18 @@ int start(bool quiet)
         }
         else if (strcmp(argument,"receive") == 0) {
           char *message = buffer;
-          struct interface_id_udp *current_interface = link_receive_message(interface_ids, &new_connection, 0, &message);
+          struct interface_id_udp *current_interface = link_interface.link_receive(interface_ids, &new_connection, 0, &message);
 
           char *address = strsep(&message," ");
           T_STATE *current_state = find_state(states, &new_contract, current_interface, address);
-          parse_message(current_state, message, payment_interface, network_interface);
+          parse_message(current_state, message, link_interface, payment_interface, network_interface);
         }
         else {
           printf("Invalid command sent to server.\n");
         }
       } else {
         char *message = buffer;
-        struct interface_id_udp *current_interface = link_receive_message(interface_ids, &new_connection, fd, &message);
+        struct interface_id_udp *current_interface = link_interface.link_receive(interface_ids, &new_connection, fd, &message);
         //printf("Received message with address %s\n",inet_ntoa(sock_addr.sin_addr));
         if (current_interface == NULL) {
           printf("Unable to find current interface\n");
@@ -752,7 +479,7 @@ int start(bool quiet)
           if (current_state == NULL) {
             printf("Unable to find current state\n");
           } else {
-            parse_message(current_state, message, payment_interface, network_interface);
+            parse_message(current_state, message, link_interface, payment_interface, network_interface);
           }
         }
       }
