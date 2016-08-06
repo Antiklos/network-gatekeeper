@@ -368,6 +368,7 @@ int get_local_ip_addr(char *address) {
         struct sockaddr_in *pAddr = (struct sockaddr_in *)tmpaddr->ifa_addr;
         if (strcmp(tmpaddr->ifa_name,"eth0") == 0) {
           strcpy(address, inet_ntoa(pAddr->sin_addr));
+          break;
         }
     }
 
@@ -680,7 +681,7 @@ int start(bool quiet)
                 strcmp("127.0.0.1",dst_address) != 0 &&
                 strcmp(dst_address,next_hop) != 0 &&
                 strcmp(local_addr,dst_address) != 0) {
-              //sprintf(msg_buf, "send %s %s %s request",src_address,dst_address,next_hop);
+              //sprintf(msg_buf, "send %s %s %s request",src_address,next_hop,dst_address);
               //send_cli_message(msg_buf);
             }
           }
