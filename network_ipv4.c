@@ -19,7 +19,7 @@ pid_t network_ipv4_init(T_STATE states[], int *new_connection) {
   system("iptables -I FORWARD -i wlan0 -j ACCEPT");
 }
 
-static int get_local_ip_addr(char *address, char *interface) {
+static int get_local_ip_addr(char *address) {
   struct ifaddrs *addrs, *tmpaddr;
   getifaddrs(&addrs);
   tmpaddr = addrs;
@@ -29,7 +29,7 @@ static int get_local_ip_addr(char *address, char *interface) {
     if (tmpaddr->ifa_addr != NULL && tmpaddr->ifa_addr->sa_family == AF_INET)
     {
         struct sockaddr_in *pAddr = (struct sockaddr_in *)tmpaddr->ifa_addr;
-        if (strcmp(tmpaddr->ifa_name,interface) == 0) {
+        if (strcmp(tmpaddr->ifa_name,"eth0") == 0) {
           strcpy(address, inet_ntoa(pAddr->sin_addr));
           break;
         }
@@ -204,13 +204,22 @@ int sniff_datagram_ipv4(char *buffer, char *src_address, char *dst_address, char
   strcpy(src_address, inet_ntoa(src_addr.sin_addr));
   strcpy(dst_address, inet_ntoa(dst_addr.sin_addr));
 
+  if (strcmp("127.0.0.1",dst_address) == 0 ||
+      strcmp("255.255.255.255",dst_address) == 0 ||
+      strcmp(dst_address,ngp_interface) == 0) {
+    return 0;
+  }
+
   char addr_buffer[CHAR_BUFFER_LEN];
   char *local_addr = addr_buffer;
-  get_local_ip_addr(local_addr, ngp_interface);
+  get_local_ip_addr(local_addr);
+
+  if (strcmp(local_addr,dst_address) == 0) {
+    return 0;
+  }
+  
   route_lookup(dst_address, next_hop);
-  if (strcmp(local_addr,next_hop) != 0 &&
-      strcmp("127.0.0.1",dst_address) != 0 &&
-      strcmp(dst_address,next_hop) != 0) {
+  if (strcmp(ngp_interface,next_hop) == 0) {
         return 1;
   }
   return 0;
