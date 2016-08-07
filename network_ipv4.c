@@ -5,6 +5,7 @@
 T_NETWORK_INTERFACE network_ipv4_interface() {
   T_NETWORK_INTERFACE interface;
   interface.network_init = &network_ipv4_init;
+  interface.sniff_datagram = &sniff_datagram_ipv4;
   interface.gate_interface = &gate_interface_ipv4;
   interface.network_destroy = &network_ipv4_destroy;
   return interface;
