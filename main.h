@@ -13,9 +13,6 @@
 #define ACCEPT 3
 #define REJECT 4
 #define BEGIN 5
-#define STOP 6
-#define COUNT_PACKETS 7
-#define PAYMENT 8
 
 #define MAX_CONNECTIONS 4
 #define MAX_CONTRACTS 10
@@ -85,7 +82,7 @@ typedef struct S_LINK_INTERFACE {
 typedef struct S_NETWORK_INTERFACE {
   int identifier;
   pid_t (*network_init)(T_STATE states[], int *new_connection);
-  int (*sniff_datagram)(char *buffer, char **src_addr, char **dst_addr, char **next_hop, char *ngp_interface);
+  int (*sniff_datagram)(char *buffer, char *src_addr, char *dst_addr, char *next_hop, char *ngp_interface);
   void (*gate_interface)(char *src_addr, char *dst_addr, time_t time_expiration, long int bytes);
   void (*network_destroy)(pid_t net_pid);
 } T_NETWORK_INTERFACE;
@@ -93,7 +90,7 @@ typedef struct S_NETWORK_INTERFACE {
 typedef struct S_PAYMENT_INTERFACE {
   int identifier;
   void (*payment_init)();
-  void (*send_payment)(char *interface_id, char *address, int64_t price);
+  void (*send_payment)(struct interface_id_udp *interface, char *address, int64_t price);
   void (*payment_destroy)();
 } T_PAYMENT_INTERFACE;
 

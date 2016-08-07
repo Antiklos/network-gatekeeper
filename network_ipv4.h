@@ -12,7 +12,7 @@ T_NETWORK_INTERFACE network_ipv4_interface();
 
 pid_t network_ipv4_init(T_STATE states[], int *new_connection);
 
-int sniff_datagram_ipv4(char *buffer, char **src_addr, char **dst_addr, char **next_hop, char *ngp_interface);
+int sniff_datagram_ipv4(char *buffer, char *src_addr, char *dst_addr, char *next_hop, char *ngp_interface);
 
 void gate_interface_ipv4(char *src_addr, char *dst_addr, time_t time_expiration, long int bytes);
 

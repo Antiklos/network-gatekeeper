@@ -14,8 +14,8 @@ void payment_test_init() {
   printf("Executing payment_test_init\n");
 }
 
-void send_payment_test(char *interface_id, char *address, int64_t price) {
-  printf("Executing send_payment_test on interface %s and address %s with price %i\n", interface_id, address, (int)price);
+void send_payment_test(struct interface_id_udp *interface, char *address, int64_t price) {
+  printf("Executing send_payment_test on interface %s and address %s with price %i\n", interface->interface, address, (int)price);
 }
 
 void payment_test_destroy() {

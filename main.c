@@ -99,8 +99,6 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     current_state->status = PROPOSE;
     construct_message(current_message, current_state, "propose");
     link_interface.link_send(current_state->interface_id, current_message);
-    //link_interface.send_propose(current_state->interface_id->ip_addr, current_state->address,
-      //current_state->price, current_state->payment_advance, current_state->time_expiration);
       }
     } else if (strcmp(argument,"propose") == 0) {
       char *price_arg = strsep(&message," ");
@@ -123,41 +121,20 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       strcpy(current_message, current_state->address);
       strcat(current_message, " accept");
       link_interface.link_send(current_state->interface_id, current_message);
-      //link_interface.send_accept(current_state->interface_id->ip_addr, current_state->address);
       int64_t payment = MAX_PAYMENT;
-      strcpy(current_message, current_state->address);
-      strcat(current_message, " payment ");
-      char payment_buf[CHAR_BUFFER_LEN];
-      char *payment_buffer = payment_buf;
-      sprintf(payment_buffer, "%lli ", (long long int)payment);
-      strcat(current_message, payment_buffer);
-      payment_interface.send_payment(current_state->interface_id->ip_addr_dst, current_state->address, payment);
-      
-      //Wait a bit to send payment to simulate delay
-      pid_t pay_pid;
-      pay_pid = fork();
-      if (pay_pid == 0) {
-        printf("Forking to send payment\n");
-        sleep(5);
-        printf("Sending message for payment now\n");
-        link_interface.link_send(current_state->interface_id, current_message);
-        exit(EXIT_SUCCESS);
-      }
-
+      payment_interface.send_payment(current_state->interface_id, current_state->address, payment);
       current_state->payment_sent += payment;
     } else {
       current_state->status = REJECT;
       construct_message(current_message, current_state, "reject");
       link_interface.link_send(current_state->interface_id, current_message);
-      //link_interface.send_reject(current_state->interface_id->ip_addr, current_state->address,
-        //current_state->price, current_state->payment_advance, current_state->time_expiration);
     }
       }
     } else if (strcmp(argument,"accept") == 0) {
       if (current_state->status != PROPOSE) {
-    printf("Not ready to receive accept.\n");
+        printf("Not ready to receive accept.\n");
       } else {
-    current_state->status = PAYMENT;
+        current_state->status = BEGIN;
       }
     } else if (strcmp(argument,"reject") == 0) {
       char *price_arg = strsep(&message," ");
@@ -178,23 +155,13 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     evaluate_reject(current_state);
     construct_message(current_message, current_state, "propose");
     link_interface.link_send(current_state->interface_id, current_message);
-    //link_interface.send_propose(current_state->interface_id->ip_addr, current_state->address,
-      //current_state->price, current_state->payment_advance, current_state->time_expiration);
     current_state->status = PROPOSE;
-      }
-    } else if (strcmp(argument,"begin") == 0) {
-      if (current_state->status != ACCEPT) {
-    printf("Not ready to receive begin.\n");
-      } else {
-    current_state->status = COUNT_PACKETS;
-    //Is this really necessary? Commenting out for now
-    //network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, true);
       }
     } else if (strcmp(argument,"payment") == 0) {
       char *price_arg = strsep(&message," ");
       if (price_arg == NULL) {
     printf("Price not provided for payment.\n");
-      } else if (current_state->status != PAYMENT && current_state->status != BEGIN) {
+      } else if (current_state->status != BEGIN) {
     printf("Not ready to receive payment.\n");
       } else {
     current_state->payment_sent += (int64_t)strtol(price_arg,NULL,10);
@@ -205,34 +172,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
         strcpy(current_message, current_state->address);
         strcat(current_message, " begin");
         link_interface.link_send(current_state->interface_id, current_message);
-        //link_interface.send_begin(current_state->interface_id->ip_addr, current_state->address);
       }
-    }
-      }
-    } else if (strcmp(argument,"count_packets") == 0) {
-      char *count = strsep(&message," ");
-      if (count == NULL) {
-    printf("Packet count not provided.\n");
-      } else if (current_state->status != BEGIN && current_state->status != COUNT_PACKETS && current_state->status != STOP) {
-    printf("Not ready to count packets.\n");
-      } else {
-    current_state->packets_delivered = strtol(count,NULL,10);
-    if (!deliver_service(current_state)) {
-      //Pretty sure this is not necessary
-      //network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, false);
-    }
-
-    if (current_state->status == COUNT_PACKETS && renew_service(current_state)) {
-      int64_t payment = MAX_PAYMENT;
-      strcpy(current_message, current_state->address);
-      strcat(current_message, " payment ");
-      char payment_buf[CHAR_BUFFER_LEN];
-      char *payment_buffer = payment_buf;
-      sprintf(payment_buffer, "%lli ", (long long int)payment);
-      strcat(current_message, payment_buffer);
-      payment_interface.send_payment(current_state->interface_id->ip_addr_dst, current_state->address, payment);
-      link_interface.link_send(current_state->interface_id, current_message);
-      current_state->payment_sent += payment;
     }
       }
     } else {
@@ -392,20 +332,17 @@ int start(bool quiet)
     if (data_size > 0) {
       if (fd == scan_sockfd) {
         char src_address[CHAR_BUFFER_LEN];
-        char *src = src_address;
         char dst_address[CHAR_BUFFER_LEN];
-        char *dst = dst_address;
         char next_hop_address[CHAR_BUFFER_LEN];
-        char *next_hop = next_hop_address;
          
-        if (network_interface.sniff_datagram(buffer,&src,&dst,&next_hop,config.ngp_interface) == 1) {
-          struct interface_id_udp *current_interface = link_interface.link_find_interface(interface_ids, &new_connection, 0, src, next_hop);
-          T_STATE *current_state = find_state(states, &new_contract, current_interface, dst);
+        if (network_interface.sniff_datagram(buffer,src_address,dst_address,next_hop_address,config.ngp_interface) == 1) {
+          struct interface_id_udp *current_interface = link_interface.link_find_interface(interface_ids, &new_connection, 0, src_address, next_hop_address);
+          T_STATE *current_state = find_state(states, &new_contract, current_interface, dst_address);
               
           if (current_state->status == DEFAULT) {
             current_state->status = REQUEST;
             char message[CHAR_BUFFER_LEN];
-            sprintf(&message[0],"%s request",dst);
+            sprintf(&message[0],"%s request",dst_address);
             link_interface.link_send(current_interface, message);
           }
         }
@@ -445,12 +382,6 @@ int start(bool quiet)
               } else if (strcmp(argument,"request") == 0) {
                 current_state->status = REQUEST;
                 link_interface.link_send(current_interface, address_with_message);
-              } else if (strcmp(argument,"stop") == 0) {
-                if (current_state->status != COUNT_PACKETS) {
-                  printf("Not ready to stop contract.\n");
-                } else {
-                  current_state->status = STOP;
-                }
               }
             }
           }

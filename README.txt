@@ -50,7 +50,6 @@ receive (interface_id) (port) (address) propose (price) (payment_advance) (time_
 receive (interface_id) (port) (address) accept
 receive (interface_id) (port) (address) reject (price) (payment_advance) (time_expiration)
 receive (interface_id) (port) (address) payment (amount) <-- only available when using the payment_simulate interface
-receive (interface_id) (port) (address) begin
 
 Example: "receive 127.0.0.1 10325 192.168.22.89 accept"
 
@@ -70,8 +69,7 @@ Each message is an interaction between what we'll call a "client" and "server". 
 
 -->request  This is the first message that the client will send to the server asking for a price for a certain network address
 <--propose  The server responds with a proposed price and terms
--->accept   The client will either accept this price and terms after which the server will respond with begin, or
+-->accept   The client will either accept this price and terms after which they will send payment, or
 -->reject   The client may reject the request, offering a different price or terms. The server must respond with another propose
-<--begin    The server responds, letting the client know that they may begin sending network packets
 
 

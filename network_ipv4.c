@@ -18,7 +18,7 @@ pid_t network_ipv4_init(T_STATE states[], int *new_connection) {
   system("iptables -I FORWARD -i wlan0 -j ACCEPT");
 }
 
-static int get_local_ip_addr(char *address) {
+static int get_local_ip_addr(char *address, char *interface) {
   struct ifaddrs *addrs, *tmpaddr;
   getifaddrs(&addrs);
   tmpaddr = addrs;
@@ -28,7 +28,7 @@ static int get_local_ip_addr(char *address) {
     if (tmpaddr->ifa_addr != NULL && tmpaddr->ifa_addr->sa_family == AF_INET)
     {
         struct sockaddr_in *pAddr = (struct sockaddr_in *)tmpaddr->ifa_addr;
-        if (strcmp(tmpaddr->ifa_name,"eth0") == 0) {
+        if (strcmp(tmpaddr->ifa_name,interface) == 0) {
           strcpy(address, inet_ntoa(pAddr->sin_addr));
           break;
         }
@@ -190,7 +190,7 @@ static int route_lookup(char *address, char *next_hop) {
   return found_gatewayip;
 }
 
-int sniff_datagram_ipv4(char *buffer, char **src_address, char **dst_address, char **next_hop, char *ngp_interface) {
+int sniff_datagram_ipv4(char *buffer, char *src_address, char *dst_address, char *next_hop, char *ngp_interface) {
   struct iphdr *iph = (struct iphdr*)(buffer + sizeof(struct ethhdr));
   struct sockaddr_in src_addr,dst_addr;
 
@@ -200,16 +200,16 @@ int sniff_datagram_ipv4(char *buffer, char **src_address, char **dst_address, ch
   memset(&dst_addr, 0, sizeof(dst_addr));
   dst_addr.sin_addr.s_addr = iph->daddr;
 
-  strcpy(*src_address, inet_ntoa(src_addr.sin_addr));
-  strcpy(*dst_address, inet_ntoa(dst_addr.sin_addr));
+  strcpy(src_address, inet_ntoa(src_addr.sin_addr));
+  strcpy(dst_address, inet_ntoa(dst_addr.sin_addr));
 
   char addr_buffer[CHAR_BUFFER_LEN];
   char *local_addr = addr_buffer;
-  get_local_ip_addr(local_addr);
-  route_lookup(*dst_address, *next_hop);
-  if (strcmp(ngp_interface,*next_hop) != 0 &&
-      strcmp("127.0.0.1",*dst_address) != 0 &&
-      strcmp(*dst_address,*next_hop) != 0) {
+  get_local_ip_addr(local_addr, ngp_interface);
+  route_lookup(dst_address, next_hop);
+  if (strcmp(local_addr,next_hop) != 0 &&
+      strcmp("127.0.0.1",dst_address) != 0 &&
+      strcmp(dst_address,next_hop) != 0) {
         return 1;
   }
   return 0;
