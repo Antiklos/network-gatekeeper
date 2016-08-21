@@ -19,6 +19,8 @@
 #include "payment_simulate.c"
 #include "contract.c"
 
+T_CONFIG config;
+
 static T_CONFIG read_config()
 {
   T_CONFIG config;
@@ -42,6 +44,18 @@ static T_CONFIG read_config()
   fscanf(file,"%s\n",buffer);
   strsep(&buffer,"=");
   strcpy(config.ngp_interface,buffer);
+
+  fscanf(file,"%s\n",buffer);
+  strsep(&buffer,"=");
+  config.default_price = (int64_t)strtol(buffer,NULL,10);
+
+  fscanf(file,"%s\n",buffer);
+  strsep(&buffer,"=");
+  config.grace_period_price = (int64_t)strtol(buffer,NULL,10);
+
+  fscanf(file,"%s\n",buffer);
+  strsep(&buffer,"=");
+  config.grace_period_time = (int)strtol(buffer,NULL,10);
 
   return config;
 }
@@ -85,7 +99,7 @@ void construct_message(char *message, T_STATE *current_state, const char *action
   bzero(buffer, 16);
 }
 
-int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_interface, T_PAYMENT_INTERFACE payment_interface, T_NETWORK_INTERFACE network_interface) {
+int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_interface, T_PAYMENT_INTERFACE payment_interface, T_NETWORK_INTERFACE network_interface, T_CONFIG *config) {
     char *argument = strsep(&message," ");
     char buffer[CHAR_BUFFER_LEN];
     char *current_message = buffer;
@@ -95,7 +109,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       if (current_state->status != DEFAULT) {
     printf("Cannot process request. Contract already in progress.\n");
       } else {
-    evaluate_request(current_state);
+    evaluate_request(current_state, config);
     current_state->status = PROPOSE;
     construct_message(current_message, current_state, "propose");
     link_interface.link_send(current_state->interface_id, current_message);
@@ -116,14 +130,14 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     current_state->price = (int64_t)strtol(price_arg,NULL,10);
     current_state->payment_advance = strtol(payment_advance,NULL,10);
     current_state->time_expiration = (time_t)strtol(time_expiration,NULL,10);
-    if (evaluate_propose(current_state)) {
+    if (evaluate_propose(current_state, config)) {
       current_state->status = ACCEPT;
       strcpy(current_message, current_state->address);
       strcat(current_message, " accept");
       link_interface.link_send(current_state->interface_id, current_message);
       int64_t payment = MAX_PAYMENT;
       payment_interface.send_payment(current_state->interface_id, current_state->address, payment);
-      current_state->payment_sent += payment;
+      current_state->account->balance -= payment;
     } else {
       current_state->status = REJECT;
       construct_message(current_message, current_state, "reject");
@@ -134,6 +148,8 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       if (current_state->status != PROPOSE) {
         printf("Not ready to receive accept.\n");
       } else {
+        long int grace_period_data = config->grace_period_price / current_state->price;
+        network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, time(NULL) + config->grace_period_time, grace_period_data);
         current_state->status = BEGIN;
       }
     } else if (strcmp(argument,"reject") == 0) {
@@ -152,7 +168,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     current_state->price = (int64_t)strtol(price_arg,NULL,10);
     current_state->payment_advance = strtol(payment_advance,NULL,10);
     current_state->time_expiration = (time_t)strtol(time_expiration,NULL,10);
-    evaluate_reject(current_state);
+    evaluate_reject(current_state, config);
     construct_message(current_message, current_state, "propose");
     link_interface.link_send(current_state->interface_id, current_message);
     current_state->status = PROPOSE;
@@ -164,15 +180,9 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       } else if (current_state->status != BEGIN) {
     printf("Not ready to receive payment.\n");
       } else {
-    current_state->payment_sent += (int64_t)strtol(price_arg,NULL,10);
+    current_state->account->balance += (int64_t)strtol(price_arg,NULL,10);
     if (deliver_service(current_state)) {
       network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, current_state->time_expiration, 4096);
-      if (current_state->status != BEGIN) {
-        current_state->status = BEGIN;
-        strcpy(current_message, current_state->address);
-        strcat(current_message, " begin");
-        link_interface.link_send(current_state->interface_id, current_message);
-      }
     }
       }
     } else {
@@ -180,14 +190,17 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     }
 }
 
-static T_STATE* find_state(T_STATE states[], int *new_contract, struct interface_id_udp *interface_id, char *address) {
+static T_STATE* find_state(T_STATE states[], int *new_contract, T_ACCOUNT accounts[], int *new_account, struct interface_id_udp *interface_id, char *address) {
   T_STATE *current_state = NULL;
+  T_ACCOUNT *current_account = NULL;
   int i;
   for (i = 0; i < *new_contract; i++) {
-    if (states[i].interface_id != NULL && strcmp(states[i].interface_id->ip_addr_dst,interface_id->ip_addr_dst) == 0 && strcmp(states[i].address,address) == 0) {
-      current_state = &states[i];
-      printf("Found previous state for identifier %s and address %s\n",interface_id->ip_addr_dst, address);
-      //break;
+    if (states[i].interface_id != NULL && strcmp(states[i].interface_id->ip_addr_dst,interface_id->ip_addr_dst) == 0) {
+      if (strcmp(states[i].address,address) == 0) {
+        current_state = &states[i];
+        printf("Found previous state for identifier %s and address %s\n",interface_id->ip_addr_dst, address);
+      }
+      current_account = states[i].account;
     }
   }
   if (current_state == NULL) {
@@ -197,8 +210,13 @@ static T_STATE* find_state(T_STATE states[], int *new_contract, struct interface
     strcpy(current_state->address, address);
     current_state->status = DEFAULT;
     current_state->price = 0;
-    current_state->payment_sent = 0;
-    current_state->packets_delivered = 0;
+    if (current_account == NULL) {
+      T_ACCOUNT account = accounts[*new_account];
+      current_state->account = &account;
+      *new_account++;
+    } else {
+      current_state->account = current_account;
+    }
     printf("Creating new state for identifier %s and address %s\n",interface_id->ip_addr_dst, address);
   }
 
@@ -221,7 +239,7 @@ int start(bool quiet)
   payment_interfaces[PAYMENT_INTERFACE_SIMULATE_IDENTIFIER] = payment_simulate_interface();
 
   //Read config file
-  T_CONFIG config = read_config();
+  config = read_config();
 
   //Get interfaces from config file
   T_LINK_INTERFACE link_interface = link_interfaces[config.link_interface];
@@ -288,8 +306,10 @@ int start(bool quiet)
   //Set up loop for events
   T_STATE states[MAX_CONTRACTS];
   struct interface_id_udp interface_ids[MAX_CONNECTIONS];
+  T_ACCOUNT accounts[MAX_ACCOUNTS];
   int new_contract = 0;
   int new_connection = 0;
+  int new_account = 0;
   int command_result = 0;
   fd_set readfds;
   int maxfd, fd;
@@ -337,7 +357,7 @@ int start(bool quiet)
          
         if (network_interface.sniff_datagram(buffer,src_address,dst_address,next_hop_address,config.ngp_interface) == 1) {
           struct interface_id_udp *current_interface = link_interface.link_find_interface(interface_ids, &new_connection, 0, src_address, next_hop_address);
-          T_STATE *current_state = find_state(states, &new_contract, current_interface, dst_address);
+          T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, dst_address);
               
           if (current_state->status == DEFAULT) {
             current_state->status = REQUEST;
@@ -374,7 +394,7 @@ int start(bool quiet)
             if (current_interface == NULL) {
               printf("Unable to find current interface for argument %s\n",argument);
             } else {
-              T_STATE *current_state = find_state(states, &new_contract, current_interface, address);
+              T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, address);
 
               argument = strsep(&message," ");
               if (argument == NULL) {
@@ -391,8 +411,8 @@ int start(bool quiet)
           struct interface_id_udp *current_interface = link_interface.link_receive(interface_ids, &new_connection, 0, &message);
 
           char *address = strsep(&message," ");
-          T_STATE *current_state = find_state(states, &new_contract, current_interface, address);
-          parse_message(current_state, message, link_interface, payment_interface, network_interface);
+          T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, address);
+          parse_message(current_state, message, link_interface, payment_interface, network_interface, &config);
         }
         else {
           printf("Invalid command sent to server.\n");
@@ -406,11 +426,11 @@ int start(bool quiet)
         } else {
           printf("About to parse message %s\n",message);
           char *address = strsep(&message," ");
-          T_STATE *current_state = find_state(states, &new_contract, current_interface, address);
+          T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, address);
           if (current_state == NULL) {
             printf("Unable to find current state\n");
           } else {
-            parse_message(current_state, message, link_interface, payment_interface, network_interface);
+            parse_message(current_state, message, link_interface, payment_interface, network_interface, &config);
           }
         }
       }

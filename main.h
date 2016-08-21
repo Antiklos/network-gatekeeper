@@ -14,8 +14,10 @@
 #define REJECT 4
 #define BEGIN 5
 
+//These arrays need to be allocated on the heap as linked lists
 #define MAX_CONNECTIONS 4
 #define MAX_CONTRACTS 10
+#define MAX_ACCOUNTS 10
 #define MAX_INTERFACE_LEN 256
 #define MAX_ADDRESS_LEN 256
 
@@ -41,6 +43,10 @@ struct route_info
   char ifName[IF_NAMESIZE];
 };
 
+typedef struct S_ACCOUNT {
+  int64_t balance;
+} T_ACCOUNT;
+
 struct interface_id_udp {
   char interface[MAX_INTERFACE_LEN];
   char ip_addr_src[16];
@@ -59,8 +65,7 @@ typedef struct S_STATE {
   int64_t price;
   long int payment_advance;
   time_t time_expiration;
-  int64_t payment_sent;
-  long int packets_delivered;
+  T_ACCOUNT *account;
 } T_STATE;
 
 typedef struct S_CONFIG {
@@ -68,6 +73,9 @@ typedef struct S_CONFIG {
   int network_interface;
   int payment_interface;
   char ngp_interface[MAX_INTERFACE_LEN];
+  int64_t default_price;
+  int64_t grace_period_price;
+  int grace_period_time;
 } T_CONFIG;
 
 typedef struct S_LINK_INTERFACE {
@@ -97,7 +105,7 @@ typedef struct S_PAYMENT_INTERFACE {
 static T_CONFIG read_config();
 
 int send_cli_message();
-static T_STATE* find_state(T_STATE states[], int *new_contract, struct interface_id_udp *interface_id, char *address);
+static T_STATE* find_state(T_STATE states[], int *new_contract, T_ACCOUNT accounts[], int *new_account, struct interface_id_udp *interface_id, char *address);
 
 #endif
 
