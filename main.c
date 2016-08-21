@@ -114,7 +114,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     if (argument == NULL) {
       printf("No message sent to receive.\n");
     } else if (strcmp(argument,"request") == 0) {
-      if (current_state->status != DEFAULT) {
+      if (current_state->status != DEFAULT && current_state->status != BEGIN) {
     printf("Cannot process request. Contract already in progress.\n");
       } else {
     evaluate_request(current_state, config);
