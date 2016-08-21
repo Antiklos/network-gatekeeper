@@ -1,4 +1,3 @@
-- Implement a grace period in the contract class
 - Refactor
 - Create a new payment class to implement sending and receiving bitcoin
 - Implement tests

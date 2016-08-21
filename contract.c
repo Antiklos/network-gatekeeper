@@ -16,14 +16,10 @@ void evaluate_request(T_STATE *state, T_CONFIG *config) {
 }
 
 bool evaluate_propose(T_STATE *state, T_CONFIG *config) {
-  if (state->price < config->default_price) {
+  if (state->price <= config->default_price) {
     return true;
   } else {
     return false;
   }
-}
-
-void evaluate_reject(T_STATE *state, T_CONFIG *config) {
-  state->price = config->default_price;
 }
 

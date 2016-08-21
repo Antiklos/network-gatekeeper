@@ -12,8 +12,6 @@ T_NETWORK_INTERFACE network_ipv4_interface() {
 }
 
 pid_t network_ipv4_init(T_STATE states[], int *new_connection) {
-  //Probably want to turn on DHCP to allow for automatic network configuration
-  //Also, find a way (spawn daemon? probably) to query iptables for packets passed through the open windows
   system("iptables -P FORWARD DROP");
   //Make the interfaces that we whitelist configurable
   system("iptables -I FORWARD -i wlan0 -j ACCEPT");
@@ -191,7 +189,7 @@ static int route_lookup(char *address, char *next_hop) {
   return found_gatewayip;
 }
 
-int sniff_datagram_ipv4(char *buffer, char *src_address, char *dst_address, char *next_hop, char *ngp_interface) {
+int sniff_datagram_ipv4(char *buffer, char *src_address, char *dst_address, char *next_hop, char *ngp_interface, unsigned int *packet_size) {
   struct iphdr *iph = (struct iphdr*)(buffer + sizeof(struct ethhdr));
   struct sockaddr_in src_addr,dst_addr;
 
@@ -220,7 +218,8 @@ int sniff_datagram_ipv4(char *buffer, char *src_address, char *dst_address, char
   
   route_lookup(dst_address, next_hop);
   if (strcmp(ngp_interface,next_hop) == 0) {
-        return 1;
+    *packet_size = iph->tot_len;
+    return 1;
   }
   return 0;
 }

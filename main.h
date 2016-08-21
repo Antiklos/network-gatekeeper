@@ -64,6 +64,7 @@ typedef struct S_STATE {
   char address[MAX_ADDRESS_LEN];
   int64_t price;
   long int payment_advance;
+  unsigned long int bytes_sent;
   time_t time_expiration;
   T_ACCOUNT *account;
 } T_STATE;
@@ -90,7 +91,7 @@ typedef struct S_LINK_INTERFACE {
 typedef struct S_NETWORK_INTERFACE {
   int identifier;
   pid_t (*network_init)(T_STATE states[], int *new_connection);
-  int (*sniff_datagram)(char *buffer, char *src_addr, char *dst_addr, char *next_hop, char *ngp_interface);
+  int (*sniff_datagram)(char *buffer, char *src_addr, char *dst_addr, char *next_hop, char *ngp_interface, unsigned int *packet_size);
   void (*gate_interface)(char *src_addr, char *dst_addr, time_t time_expiration, long int bytes);
   void (*network_destroy)(pid_t net_pid);
 } T_NETWORK_INTERFACE;

@@ -168,7 +168,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     current_state->price = (int64_t)strtol(price_arg,NULL,10);
     current_state->payment_advance = strtol(payment_advance,NULL,10);
     current_state->time_expiration = (time_t)strtol(time_expiration,NULL,10);
-    evaluate_reject(current_state, config);
+    evaluate_request(current_state, config);
     construct_message(current_message, current_state, "propose");
     link_interface.link_send(current_state->interface_id, current_message);
     current_state->status = PROPOSE;
@@ -354,10 +354,12 @@ int start(bool quiet)
         char src_address[CHAR_BUFFER_LEN];
         char dst_address[CHAR_BUFFER_LEN];
         char next_hop_address[CHAR_BUFFER_LEN];
+        unsigned int packet_size;
          
-        if (network_interface.sniff_datagram(buffer,src_address,dst_address,next_hop_address,config.ngp_interface) == 1) {
+        if (network_interface.sniff_datagram(buffer,src_address,dst_address,next_hop_address,config.ngp_interface,&packet_size) == 1) {
           struct interface_id_udp *current_interface = link_interface.link_find_interface(interface_ids, &new_connection, 0, src_address, next_hop_address);
           T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, dst_address);
+          current_state->bytes_sent += packet_size;
               
           if (current_state->status == DEFAULT) {
             current_state->status = REQUEST;
