@@ -211,9 +211,8 @@ static T_STATE* find_state(T_STATE states[], int *new_contract, T_ACCOUNT accoun
     current_state->status = DEFAULT;
     current_state->price = 0;
     if (current_account == NULL) {
-      T_ACCOUNT account = accounts[*new_account];
-      current_state->account = &account;
-      *new_account++;
+      current_state->account = &accounts[*new_account];
+      *new_account = *new_account + 1;
     } else {
       current_state->account = current_account;
     }
@@ -422,7 +421,6 @@ int start(bool quiet)
       } else {
         char *message = buffer;
         struct interface_id_udp *current_interface = link_interface.link_receive(interface_ids, &new_connection, fd, &message);
-        //printf("Received message with address %s\n",inet_ntoa(sock_addr.sin_addr));
         if (current_interface == NULL) {
           printf("Unable to find current interface\n");
         } else {

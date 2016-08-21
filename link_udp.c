@@ -16,7 +16,7 @@ struct interface_id_udp* link_find_interface_udp(struct interface_id_udp interfa
     struct interface_id_udp *current_interface = NULL;
     int i;
     for (i = 0; i < *new_connection; i++) {
-      if (interfaces[i].sockfd == sockfd) {
+      if (interfaces[i].sockfd == sockfd || strcmp(interfaces[i].ip_addr_dst, ip_addr_dst) == 0) {
       current_interface = &interfaces[i];
       printf("Found previous interface for ip_addr %s outport %u inport %u and sockfd %i\n",
         current_interface->ip_addr_dst, current_interface->outgoing_port, current_interface->incoming_port, current_interface->sockfd);
