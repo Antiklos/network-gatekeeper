@@ -218,7 +218,7 @@ int sniff_datagram_ipv4(char *buffer, char *src_address, char *dst_address, char
   
   route_lookup(dst_address, next_hop);
   if (strcmp(ngp_interface,next_hop) == 0) {
-    *packet_size = iph->tot_len;
+    *packet_size = iph->tot_len >> 8;
     return 1;
   }
   return 0;

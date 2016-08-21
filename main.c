@@ -137,7 +137,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       link_interface.link_send(current_state->interface_id, current_message);
       int64_t payment = MAX_PAYMENT;
       payment_interface.send_payment(current_state->interface_id, current_state->address, payment);
-      current_state->account->balance -= payment;
+      //current_state->account->balance -= payment;
     } else {
       current_state->status = REJECT;
       construct_message(current_message, current_state, "reject");
@@ -150,6 +150,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       } else {
         long int grace_period_data = config->grace_period_price / current_state->price;
         network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, time(NULL) + config->grace_period_time, grace_period_data);
+        //decrement balance here
         current_state->status = BEGIN;
       }
     } else if (strcmp(argument,"reject") == 0) {
@@ -359,7 +360,7 @@ int start(bool quiet)
           struct interface_id_udp *current_interface = link_interface.link_find_interface(interface_ids, &new_connection, 0, src_address, next_hop_address);
           T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, dst_address);
           current_state->bytes_sent += packet_size;
-              
+
           if (current_state->status == DEFAULT) {
             current_state->status = REQUEST;
             char message[CHAR_BUFFER_LEN];
