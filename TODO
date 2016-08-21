@@ -3,7 +3,6 @@
 - Create a new payment class to implement sending and receiving bitcoin
 - Implement tests
 - Move the cli_socket to a unix socket instead of inet?
-- Implement use cases for renewing contracts
 - Smarter default client behavior for polling all interfaces and choosing the best deal
 - Implement or interface with a reputation system to prevent abuse
 - GUI for config
