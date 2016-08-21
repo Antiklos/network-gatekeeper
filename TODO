@@ -1,4 +1,5 @@
 - Refactor
+- Make contract data size configurable
 - Create a new payment class to implement sending and receiving bitcoin
 - Implement tests
 - Move the cli_socket to a unix socket instead of inet?

@@ -231,7 +231,7 @@ void gate_interface_ipv4(char *src_addr, char *dst_addr, time_t time_expiration,
   strftime(time_string, 26, "%Y-%m-%dT%H:%M:%S", tm_info);
   char buf[CHAR_BUFFER_LEN];
   char *output = buf;
-  sprintf(output, "iptables -I FORWARD -i $(ip -o route get %s | awk '{ print $3 }') -d %s -m time --datestop %s -m connbytes --connbytes 0:%li --connbytes-dir both --connbytes-mode bytes -j ACCEPT\n",src_addr,dst_addr,time_string,kb*1024);
+  sprintf(output, "iptables -A FORWARD -i $(ip -o route get %s | awk '{ print $3 }') -d %s -m time --datestop %s -m connbytes --connbytes 0:%li --connbytes-dir both --connbytes-mode bytes -j ACCEPT\n",src_addr,dst_addr,time_string,kb*1024);
   system(output);
 }
 

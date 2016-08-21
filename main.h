@@ -29,6 +29,9 @@
 #define TIME_TO_TX_CONFIRM 5
 #define PACKET_THROUGHPUT 3
 
+//This needs to be configurable
+#define CONTRACT_DATA_SIZE 4096
+
 #define SOCK_PATH "/var/run/network_gatekeeper.sock"
 #define LOG_PATH "/var/log/network_gatekeeper.log"
 
@@ -77,6 +80,8 @@ typedef struct S_CONFIG {
   int64_t default_price;
   int64_t grace_period_price;
   int grace_period_time;
+  int data_renewal;
+  int time_renewal;
 } T_CONFIG;
 
 typedef struct S_LINK_INTERFACE {

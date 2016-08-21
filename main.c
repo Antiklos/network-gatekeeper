@@ -57,6 +57,14 @@ static T_CONFIG read_config()
   strsep(&buffer,"=");
   config.grace_period_time = (int)strtol(buffer,NULL,10);
 
+  fscanf(file,"%s\n",buffer);
+  strsep(&buffer,"=");
+  config.data_renewal = (int)strtol(buffer,NULL,10);
+
+  fscanf(file,"%s\n",buffer);
+  strsep(&buffer,"=");
+  config.time_renewal = (int)strtol(buffer,NULL,10);
+
   return config;
 }
 
@@ -183,7 +191,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       } else {
     current_state->account->balance += (int64_t)strtol(price_arg,NULL,10);
     if (deliver_service(current_state)) {
-      network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, current_state->time_expiration, 4096);
+      network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, current_state->time_expiration, CONTRACT_DATA_SIZE);
     }
       }
     } else {
@@ -361,7 +369,7 @@ int start(bool quiet)
           T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, dst_address);
           current_state->bytes_sent += packet_size;
 
-          if (current_state->status == DEFAULT) {
+          if (current_state->status == DEFAULT || (current_state->bytes_sent + config.data_renewal > CONTRACT_DATA_SIZE) || (current_state->time_expiration - time(NULL) < config.time_renewal)) {
             current_state->status = REQUEST;
             char message[CHAR_BUFFER_LEN];
             sprintf(&message[0],"%s request",dst_address);
