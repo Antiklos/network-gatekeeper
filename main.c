@@ -231,7 +231,7 @@ static T_STATE* find_state(T_STATE states[], int *new_contract, T_ACCOUNT accoun
   return current_state;
 }
 
-int start(bool quiet)
+int start(bool verbose)
 {
   //Create interface arrays
   T_LINK_INTERFACE link_interfaces[LINK_INTERFACES_NUMBER];
@@ -283,7 +283,7 @@ int start(bool quiet)
     exit(EXIT_FAILURE);
   }
 
-  if (quiet) {
+  if (!verbose) {
     close(STDIN_FILENO);
     if (open("/dev/null",O_RDONLY) == -1) {
       printf("failed to reopen stdin while daemonizing (errno=%d)",errno);
@@ -487,7 +487,7 @@ main(int args, char *argv[])
 
   if (strcmp(argv[1],"start") == 0)
   {
-    return start(args >= 3 && strcmp(argv[2],"-q") == 0);
+    return start(args >= 3 && strcmp(argv[2],"-v") == 0);
   } 
   else if (strcmp(argv[1],"stop") == 0)
   {

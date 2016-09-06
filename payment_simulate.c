@@ -26,7 +26,6 @@ void send_payment_simulate(struct interface_id_udp *interface, char *address, in
   pid_t pay_pid;
   pay_pid = fork();
   if (pay_pid == 0) {
-    printf("Forking to send payment\n");
     sleep(10);
     printf("Sending message for payment now\n");
     link_send_udp(interface, current_message);

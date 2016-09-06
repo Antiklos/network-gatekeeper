@@ -110,7 +110,6 @@ typedef struct S_PAYMENT_INTERFACE {
 
 static T_CONFIG read_config();
 
-int send_cli_message();
 static T_STATE* find_state(T_STATE states[], int *new_contract, T_ACCOUNT accounts[], int *new_account, struct interface_id_udp *interface_id, char *address);
 
 #endif
