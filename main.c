@@ -178,6 +178,11 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     link_interface.link_send(current_state->interface_id, current_message);
     current_state->status = PROPOSE;
       }
+    } else if (strcmp(argument,"payment") == 0) {
+      char pbuffer[256];
+      char *payment_message = pbuffer;
+      sprintf(payment_message, "payment %s", message);
+      send_cli_message(payment_message);
     } else {
       printf("Invalid message type.\n");
     }
