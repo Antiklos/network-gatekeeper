@@ -21,16 +21,17 @@ PAYMENT_INTERFACE: The identifier for the module that will be used to send and c
 NGP_INTERFACE: The network-layer address for the server
 DEFAULT_PRICE: The price per kilobyte that the client will be charged
 GRACE_PERIOD_PRICE: The worth of the data the client will be given in the grace period (for example, if the accepted price is 5, and GRACE_PERIOD_PRICE is 10, the client will be given 2kb of data)
-GRACE_PERIOD_TIME: The duration of the grace period
-DATA_RENEWAL: When there is less than this amount of data in kilobytes left on a contract, the client will initiate another contract
+CONTRACT_DATA: The data limit of any contract in kilobytes
+CONTRACT_TIME: The duration of any contract
+DATA_RENEWAL: When there is less than this amount of data in bytes left on a contract, the client will initiate another contract
 TIME_RENEWAL: When there is less than this amount of time left of a contract, the client will initiate another contract
 
-Dependencies: gcc; build-essential
+Dependencies: gcc; build-essential; jq
 Tested only on Ubuntu 14.04 and Debian Jessie
 
 To get started right away with one machine, here's a guide on how to test it out:
 
-1. Install dependencies: sudo apt-get install gcc build-essential
+1. Install dependencies: sudo apt-get install gcc build-essential jq
 2. Compile the code: gcc main.c -o ngp
 3. Start the server: sudo ./ngp start -v
 4. Now test that the server is receiving messages on the local unix socket: sudo ./ngp server test

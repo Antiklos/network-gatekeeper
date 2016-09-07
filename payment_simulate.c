@@ -10,17 +10,14 @@ T_PAYMENT_INTERFACE payment_simulate_interface() {
   return interface;
 }
 
-void payment_simulate_init() {
+int payment_simulate_init() {
   printf("Executing payment_simulate_init\n");
+  return 0;
 }
 
 void send_payment_simulate(struct interface_id_udp *interface, char *address, int64_t price) {
   char current_message[CHAR_BUFFER_LEN];
-  strcpy(current_message, address);
-  strcat(current_message, " payment ");
-  char payment_buffer[CHAR_BUFFER_LEN];
-  sprintf(payment_buffer, "%lli ", (long long int)price);
-  strcat(current_message, payment_buffer);
+  sprintf(current_message, "payment %s %lli", address, (long long int)price);
 
   //Wait a bit to send payment to simulate delay
   pid_t pay_pid;
@@ -28,12 +25,12 @@ void send_payment_simulate(struct interface_id_udp *interface, char *address, in
   if (pay_pid == 0) {
     sleep(10);
     printf("Sending message for payment now\n");
-    link_send_udp(interface, current_message);
+    send_cli_message(current_message);
     exit(EXIT_SUCCESS);
   }
 }
 
-void payment_simulate_destroy() {
+void payment_simulate_destroy(int pid_payment) {
   printf("Executing payment_simulate_destroy\n");
 }
 

@@ -55,7 +55,11 @@ static T_CONFIG read_config()
 
   fscanf(file,"%s\n",buffer);
   strsep(&buffer,"=");
-  config.grace_period_time = (int)strtol(buffer,NULL,10);
+  config.contract_data = (int)strtol(buffer,NULL,10);
+
+  fscanf(file,"%s\n",buffer);
+  strsep(&buffer,"=");
+  config.contract_time = (int)strtol(buffer,NULL,10);
 
   fscanf(file,"%s\n",buffer);
   strsep(&buffer,"=");
@@ -99,9 +103,6 @@ void construct_message(char *message, T_STATE *current_state, const char *action
   sprintf(buf, "%lli ", (long long int)current_state->price);
   strcat(message,  buf);
   bzero(buffer, 16);
-  sprintf(buf, "%li ", current_state->payment_advance);
-  strcat(message,  buf);
-  bzero(buffer, 16);
   sprintf(buf, "%u", (unsigned int)current_state->time_expiration);
   strcat(message,  buf);
   bzero(buffer, 16);
@@ -124,19 +125,15 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       }
     } else if (strcmp(argument,"propose") == 0) {
       char *price_arg = strsep(&message," ");
-      char *payment_advance = strsep(&message," ");
       char *time_expiration = strsep(&message," ");
       if (price_arg == NULL) {
     printf("Price not provided for propose.\n");
-      } else if (payment_advance == NULL) {
-    printf("Payment advance not provided for propose.\n");
       } else if (time_expiration == NULL) {
     printf("Time expiration not provided for propose.\n");
       } else if (current_state->status != REQUEST && current_state->status != REJECT) {
     printf("Not ready to receive propose.\n");
       } else {
     current_state->price = (int64_t)strtol(price_arg,NULL,10);
-    current_state->payment_advance = strtol(payment_advance,NULL,10);
     current_state->time_expiration = (time_t)strtol(time_expiration,NULL,10);
     if (evaluate_propose(current_state, config)) {
       current_state->status = ACCEPT;
@@ -145,6 +142,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       link_interface.link_send(current_state->interface_id, current_message);
       int64_t payment = MAX_PAYMENT;
       payment_interface.send_payment(current_state->interface_id, current_state->address, payment);
+      current_state->bytes_sent = 0;
       //current_state->account->balance -= payment;
     } else {
       current_state->status = REJECT;
@@ -156,47 +154,42 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       if (current_state->status != PROPOSE) {
         printf("Not ready to receive accept.\n");
       } else {
-        long int grace_period_data = config->grace_period_price / current_state->price;
-        network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, time(NULL) + config->grace_period_time, grace_period_data);
-        //decrement balance here
-        current_state->status = BEGIN;
+        if (deliver_service(current_state, config)) {
+          long int grace_period_data = config->grace_period_price / current_state->price;
+          network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, time(NULL) + config->contract_time, grace_period_data);
+          current_state->account->balance -= config->grace_period_price;
+          current_state->status = BEGIN;
+        }
       }
     } else if (strcmp(argument,"reject") == 0) {
       char *price_arg = strsep(&message," ");
-      char *payment_advance = strsep(&message," ");
       char *time_expiration = strsep(&message," ");
       if (price_arg == NULL) {
     printf("Price not provided for reject.\n");
-      } else if (payment_advance == NULL) {
-    printf("Payment advance not provided for propose.\n");
       } else if (time_expiration == NULL) {
     printf("Time expiration not provided for propose.\n");
       } else if (current_state->status != PROPOSE) {
     printf("Not ready to receive reject.");
       } else {
     current_state->price = (int64_t)strtol(price_arg,NULL,10);
-    current_state->payment_advance = strtol(payment_advance,NULL,10);
     current_state->time_expiration = (time_t)strtol(time_expiration,NULL,10);
     evaluate_request(current_state, config);
     construct_message(current_message, current_state, "propose");
     link_interface.link_send(current_state->interface_id, current_message);
     current_state->status = PROPOSE;
       }
-    } else if (strcmp(argument,"payment") == 0) {
-      char *price_arg = strsep(&message," ");
-      if (price_arg == NULL) {
-    printf("Price not provided for payment.\n");
-      } else if (current_state->status != BEGIN) {
-    printf("Not ready to receive payment.\n");
-      } else {
-    current_state->account->balance += (int64_t)strtol(price_arg,NULL,10);
-    if (deliver_service(current_state)) {
-      network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, current_state->time_expiration, CONTRACT_DATA_SIZE);
-    }
-      }
     } else {
       printf("Invalid message type.\n");
     }
+}
+
+static T_ACCOUNT* find_account(T_ACCOUNT accounts[], int new_account, char *account_id) {
+  int i;
+  for (i = 0; i < new_account; i++) {
+    if (strcmp(accounts[i].account_id, account_id) == 0) {
+      return &accounts[i];
+    }
+  }
 }
 
 static T_STATE* find_state(T_STATE states[], int *new_contract, T_ACCOUNT accounts[], int *new_account, struct interface_id_udp *interface_id, char *address) {
@@ -327,6 +320,7 @@ int start(bool verbose)
   socklen_t sock_len = sizeof(sock_addr);
 
   pid_t net_pid = network_interface.network_init(states, &new_contract);
+  pid_t payment_pid = payment_interface.payment_init();
 
   int saddr_size, data_size;
   struct sockaddr saddr;
@@ -369,7 +363,7 @@ int start(bool verbose)
           T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, dst_address);
           current_state->bytes_sent += packet_size;
 
-          if (current_state->status == DEFAULT || (current_state->bytes_sent + config.data_renewal > CONTRACT_DATA_SIZE) || (current_state->time_expiration - time(NULL) < config.time_renewal)) {
+          if (current_state->status == DEFAULT || (current_state->bytes_sent + config.data_renewal > config.contract_data * 1024) || (current_state->time_expiration - time(NULL) < config.time_renewal)) {
             current_state->status = REQUEST;
             char message[CHAR_BUFFER_LEN];
             sprintf(&message[0],"%s request",dst_address);
@@ -387,42 +381,16 @@ int start(bool verbose)
           printf("Daemon stopping.\n");
           command_result = -1;
         }
-        else if (strcmp(argument,"send") == 0) {
-          char *ip_addr_src = strsep(&message," ");
-          char *ip_addr_dst = strsep(&message," ");
-          char address_with_message[CHAR_BUFFER_LEN];
-          strcpy(address_with_message, message);
-          char *address = strsep(&message," ");
-          if (ip_addr_src == NULL) {
-            printf("No ip_addr_src id provided.\n");
-          } else if (ip_addr_dst == NULL) {
-            printf("No ip_addr_dst id provided.\n");
-          } else if (address == NULL) {
-            printf("No address provided.\n");
-          } else {
-            struct interface_id_udp *current_interface = link_interface.link_find_interface(interface_ids, &new_connection, 0, ip_addr_src, ip_addr_dst);
-            if (current_interface == NULL) {
-              printf("Unable to find current interface for argument %s\n",argument);
-            } else {
-              T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, address);
-
-              argument = strsep(&message," ");
-              if (argument == NULL) {
-                printf("No message sent to receive.\n");
-              } else if (strcmp(argument,"request") == 0) {
-                current_state->status = REQUEST;
-                link_interface.link_send(current_interface, address_with_message);
-              }
-            }
-          }
-        }
-        else if (strcmp(argument,"receive") == 0) {
+        else if (strcmp(argument,"payment") == 0) {
           char *message = buffer;
-          struct interface_id_udp *current_interface = link_interface.link_receive(interface_ids, &new_connection, 0, &message);
-
           char *address = strsep(&message," ");
-          T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, address);
-          parse_message(current_state, message, link_interface, payment_interface, network_interface, &config);
+          T_ACCOUNT *account = find_account(accounts, new_account, address);
+
+          if (account != NULL) {
+            char *price_arg = strsep(&message," ");
+            int64_t payment = (int64_t)strtol(price_arg,NULL,10);
+            account->balance += payment;
+          }
         }
         else {
           printf("Invalid command sent to server.\n");
@@ -458,6 +426,7 @@ int start(bool verbose)
   close(link_sockfd);
   close(scan_sockfd);
   network_interface.network_destroy(net_pid);
+  payment_interface.payment_destroy(payment_pid);
   exit(EXIT_SUCCESS);
   return 0;
 }
