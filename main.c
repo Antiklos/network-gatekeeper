@@ -17,6 +17,7 @@
 #include "network_ipv4.c"
 #include "payment_test.c"
 #include "payment_simulate.c"
+#include "payment_bitcoin.c"
 #include "contract.c"
 
 T_CONFIG config;
@@ -109,10 +110,8 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       } else {
     evaluate_request(current_state, config);
     current_state->status = PROPOSE;
-    if (current_state->account->account_id == NULL) {
-      char *account_id = strsep(&message," ");
-      strcpy(current_state->account->account_id, account_id);
-    }
+    char *account_id = strsep(&message," ");
+    strcpy(current_state->account->account_id, account_id);
     sprintf(current_message, "%s propose %lli %u %s", current_state->address, (long long int)current_state->price, (unsigned int)current_state->time_expiration, config->account_id);
     link_interface.link_send(current_state->interface_id, current_message);
       }
@@ -131,9 +130,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     current_state->time_expiration = (time_t)strtol(time_expiration,NULL,10);
     if (evaluate_propose(current_state, config)) {
       current_state->status = ACCEPT;
-      if (current_state->account->account_id == NULL) {
-        strcpy(current_state->account->account_id, account_id);
-      }
+      strcpy(current_state->account->account_id, account_id);
       strcpy(current_message, current_state->address);
       strcat(current_message, " accept");
       link_interface.link_send(current_state->interface_id, current_message);
@@ -235,6 +232,7 @@ int start(bool verbose)
   network_interfaces[NETWORK_INTERFACE_IPV4_IDENTIFIER] = network_ipv4_interface();
   payment_interfaces[PAYMENT_INTERFACE_TEST_IDENTIFIER] = payment_test_interface();
   payment_interfaces[PAYMENT_INTERFACE_SIMULATE_IDENTIFIER] = payment_simulate_interface();
+  payment_interfaces[PAYMENT_INTERFACE_BITCOIN_IDENTIFIER] = payment_bitcoin_interface();
 
   //Read config file
   config = read_config();
@@ -387,7 +385,7 @@ int start(bool verbose)
             int64_t payment = (int64_t)strtol(price_arg,NULL,10);
             account->balance += payment;
           } else {
-            printf("No account found\n");
+            printf("No account found for account_id %s\n", address);
           }
         }
         else {

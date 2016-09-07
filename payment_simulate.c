@@ -11,7 +11,7 @@ T_PAYMENT_INTERFACE payment_simulate_interface() {
 }
 
 int payment_simulate_init() {
-  printf("Executing payment_simulate_init\n");
+  //printf("Executing payment_simulate_init\n");
   return 0;
 }
 
@@ -31,7 +31,7 @@ void send_payment_simulate(struct interface_id_udp *interface, char *address, in
 }
 
 void payment_simulate_destroy(int pid_payment) {
-  printf("Executing payment_simulate_destroy\n");
+  //printf("Executing payment_simulate_destroy\n");
 }
 
 

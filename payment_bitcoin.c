@@ -1,6 +1,7 @@
 #include <stdio.h>
+#include <signal.h>
 
-#include "payment_simulate.h"
+#include "payment_bitcoin.h"
 
 T_PAYMENT_INTERFACE payment_bitcoin_interface() {
   T_PAYMENT_INTERFACE interface;
@@ -15,14 +16,13 @@ int payment_bitcoin_init() {
   pay_pid = fork();
   if (pay_pid == 0) {
     FILE *p;
-    int tx_number = 0;
+    int tx_number = -1;
     char buffer[BITCOIN_ADDRESS_LEN];
     char *output = buffer;
     char cbuffer[256];
     char *command = cbuffer;
     while(true) {
       sleep(1);
-
       p = popen("electrum history | jq '. | length'", "r");
 
       bzero(buffer, BITCOIN_ADDRESS_LEN);
@@ -30,7 +30,14 @@ int payment_bitcoin_init() {
       if (pclose(p) == -1) {
         printf("Error closing pipe\n");
       }
-      while(atoi(output) > tx_number) {
+
+      if (tx_number == -1) {
+        tx_number = 0;
+      }
+
+      int tx_found = atoi(output);
+      while(tx_found > tx_number) {
+        printf("tx_found is %i and tx_number is %i so checking value\n",tx_found, tx_number);
         bzero(cbuffer, 256);
         sprintf(command, "electrum history | jq '.[%i].value * 100000000'",tx_number);
         p = popen(command, "r");
@@ -41,12 +48,9 @@ int payment_bitcoin_init() {
           printf("Error closing pipe\n");
         }
 
-        tx_number++;
-        char mbuffer[256];
-        char *mantissa = mbuffer;
-        mantissa = strsep(&output, 'e');
+        char *mantissa = strsep(&output, "e");
         int64_t payment = (int64_t)atoi(mantissa);
-        strsep(&output, '+');
+        strsep(&output, "+");
         if (output != NULL) {
           int exponent = atoi(output);
           while (exponent > 0) {
@@ -66,9 +70,12 @@ int payment_bitcoin_init() {
           }
 
           char current_message[CHAR_BUFFER_LEN];
-          sprintf(current_message, "payment %s %lli", address, (long long int)payment);
+          sprintf(current_message, "payment %s %lli", output, (long long int)payment);
+          printf("Detected payment and sending message %s\n",current_message);
           send_cli_message(current_message);
         }
+
+        tx_number++;
       }
     }
   }
@@ -81,7 +88,8 @@ void send_payment_bitcoin(struct interface_id_udp *interface, char *address, int
   char *command = buffer;
   double price_double = price / 100000000;
   sprintf(command, "electrum payto %s %f", address, price_double);
-  system(command);
+  printf("Sending bitoin payment with command %s\n",command);
+  //system(command);
 }
 
 void payment_bitcoin_destroy(int pid_payment) {
