@@ -86,8 +86,8 @@ int payment_bitcoin_init() {
 void send_payment_bitcoin(struct interface_id_udp *interface, char *address, int64_t price) {
   char buffer[256];
   char *command = buffer;
-  double price_double = price / 100000000;
-  sprintf(command, "electrum payto %s %f", address, price_double);
+  double price_double = price / 100000000.0f;
+  sprintf(command, "electrum payto %s %.8f", address, price_double);
   printf("Sending bitoin payment with command %s\n",command);
   //system(command);
 }
