@@ -77,6 +77,7 @@ typedef struct S_CONFIG {
   int network_interface;
   int payment_interface;
   char ngp_interface[MAX_INTERFACE_LEN];
+  char account_id[35];
   int64_t default_price;
   int64_t grace_period_price;
   int contract_data;

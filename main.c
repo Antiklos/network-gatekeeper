@@ -47,6 +47,10 @@ static T_CONFIG read_config()
 
   fscanf(file,"%s\n",buffer);
   strsep(&buffer,"=");
+  strcpy(config.account_id,buffer);
+
+  fscanf(file,"%s\n",buffer);
+  strsep(&buffer,"=");
   config.default_price = (int64_t)strtol(buffer,NULL,10);
 
   fscanf(file,"%s\n",buffer);
@@ -120,6 +124,12 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       } else {
     evaluate_request(current_state, config);
     current_state->status = PROPOSE;
+    if (current_state->account->account_id == NULL) {
+      char abuffer[35];
+      char *account_id = abuffer;
+      account_id = strsep(&message," ");
+      strcpy(current_state->account->account_id, account_id);
+    }
     construct_message(current_message, current_state, "propose");
     link_interface.link_send(current_state->interface_id, current_message);
       }
@@ -178,11 +188,6 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     link_interface.link_send(current_state->interface_id, current_message);
     current_state->status = PROPOSE;
       }
-    } else if (strcmp(argument,"payment") == 0) {
-      char pbuffer[256];
-      char *payment_message = pbuffer;
-      sprintf(payment_message, "payment %s", message);
-      send_cli_message(payment_message);
     } else {
       printf("Invalid message type.\n");
     }
@@ -371,7 +376,7 @@ int start(bool verbose)
           if (current_state->status == DEFAULT || (current_state->bytes_sent + config.data_renewal > config.contract_data * 1024) || (current_state->time_expiration - time(NULL) < config.time_renewal)) {
             current_state->status = REQUEST;
             char message[CHAR_BUFFER_LEN];
-            sprintf(&message[0],"%s request",dst_address);
+            sprintf(&message[0],"%s request %s",dst_address, config.account_id);
             link_interface.link_send(current_interface, message);
           }
         }
@@ -387,7 +392,6 @@ int start(bool verbose)
           command_result = -1;
         }
         else if (strcmp(argument,"payment") == 0) {
-          char *message = buffer;
           char *address = strsep(&message," ");
           T_ACCOUNT *account = find_account(accounts, new_account, address);
 
@@ -395,6 +399,8 @@ int start(bool verbose)
             char *price_arg = strsep(&message," ");
             int64_t payment = (int64_t)strtol(price_arg,NULL,10);
             account->balance += payment;
+          } else {
+            printf("No account found\n");
           }
         }
         else {
@@ -408,11 +414,18 @@ int start(bool verbose)
         } else {
           printf("About to parse message %s\n",message);
           char *address = strsep(&message," ");
-          T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, address);
-          if (current_state == NULL) {
-            printf("Unable to find current state\n");
+
+          if (strcmp(address,"payment") == 0) {
+            char payment_message[256];
+            sprintf(payment_message, "payment %s", message);
+            send_cli_message(payment_message);
           } else {
-            parse_message(current_state, message, link_interface, payment_interface, network_interface, &config);
+            T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, address);
+            if (current_state == NULL) {
+              printf("Unable to find current state\n");
+            } else {
+              parse_message(current_state, message, link_interface, payment_interface, network_interface, &config);
+            }
           }
         }
       }
