@@ -97,21 +97,6 @@ int create_udp_socket(unsigned int *port) {
   return sockfd;
 }
 
-void construct_message(char *message, T_STATE *current_state, const char *action) {
-  char buffer[16];
-  char *buf = buffer;
-  strcpy(message, current_state->address);
-  strcat(message, " ");
-  strcat(message, action);
-  strcat(message, " ");
-  sprintf(buf, "%lli ", (long long int)current_state->price);
-  strcat(message,  buf);
-  bzero(buffer, 16);
-  sprintf(buf, "%u", (unsigned int)current_state->time_expiration);
-  strcat(message,  buf);
-  bzero(buffer, 16);
-}
-
 int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_interface, T_PAYMENT_INTERFACE payment_interface, T_NETWORK_INTERFACE network_interface, T_CONFIG *config) {
     char *argument = strsep(&message," ");
     char buffer[CHAR_BUFFER_LEN];
@@ -125,17 +110,16 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     evaluate_request(current_state, config);
     current_state->status = PROPOSE;
     if (current_state->account->account_id == NULL) {
-      char abuffer[35];
-      char *account_id = abuffer;
-      account_id = strsep(&message," ");
+      char *account_id = strsep(&message," ");
       strcpy(current_state->account->account_id, account_id);
     }
-    construct_message(current_message, current_state, "propose");
+    sprintf(current_message, "%s propose %lli %u %s", current_state->address, (long long int)current_state->price, (unsigned int)current_state->time_expiration, config->account_id);
     link_interface.link_send(current_state->interface_id, current_message);
       }
     } else if (strcmp(argument,"propose") == 0) {
       char *price_arg = strsep(&message," ");
       char *time_expiration = strsep(&message," ");
+      char *account_id = strsep(&message," ");
       if (price_arg == NULL) {
     printf("Price not provided for propose.\n");
       } else if (time_expiration == NULL) {
@@ -147,16 +131,19 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     current_state->time_expiration = (time_t)strtol(time_expiration,NULL,10);
     if (evaluate_propose(current_state, config)) {
       current_state->status = ACCEPT;
+      if (current_state->account->account_id == NULL) {
+        strcpy(current_state->account->account_id, account_id);
+      }
       strcpy(current_message, current_state->address);
       strcat(current_message, " accept");
       link_interface.link_send(current_state->interface_id, current_message);
       int64_t payment = MAX_PAYMENT;
-      payment_interface.send_payment(current_state->interface_id, current_state->address, payment);
+      payment_interface.send_payment(current_state->interface_id, current_state->account->account_id, payment);
       current_state->bytes_sent = 0;
       //current_state->account->balance -= payment;
     } else {
       current_state->status = REJECT;
-      construct_message(current_message, current_state, "reject");
+      sprintf(current_message, "%s propose %lli %u", current_state->address, (long long int)current_state->price, (unsigned int)current_state->time_expiration);
       link_interface.link_send(current_state->interface_id, current_message);
     }
       }
@@ -184,7 +171,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     current_state->price = (int64_t)strtol(price_arg,NULL,10);
     current_state->time_expiration = (time_t)strtol(time_expiration,NULL,10);
     evaluate_request(current_state, config);
-    construct_message(current_message, current_state, "propose");
+    sprintf(current_message, "%s propose %lli %u %s", current_state->address, (long long int)current_state->price, (unsigned int)current_state->time_expiration, config->account_id);
     link_interface.link_send(current_state->interface_id, current_message);
     current_state->status = PROPOSE;
       }
