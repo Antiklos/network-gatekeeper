@@ -8,10 +8,10 @@
 
 T_PAYMENT_INTERFACE payment_test_interface();
 
-void payment_test_init();
+int payment_test_init();
 
 void send_payment_test(struct interface_id_udp *interface, char *address, int64_t price);
 
-void payment_test_destroy();
+void payment_test_destroy(int pid_payment);
 
 #endif

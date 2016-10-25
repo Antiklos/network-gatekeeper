@@ -5,7 +5,7 @@
 
 #define LINK_INTERFACES_NUMBER 2
 #define NETWORK_INTERFACES_NUMBER 2
-#define PAYMENT_INTERFACES_NUMBER 2
+#define PAYMENT_INTERFACES_NUMBER 3
 
 #define DEFAULT 0
 #define REQUEST 1
@@ -47,6 +47,7 @@ struct route_info
 };
 
 typedef struct S_ACCOUNT {
+  char account_id[35];
   int64_t balance;
 } T_ACCOUNT;
 
@@ -66,7 +67,6 @@ typedef struct S_STATE {
   int status;
   char address[MAX_ADDRESS_LEN];
   int64_t price;
-  long int payment_advance;
   unsigned long int bytes_sent;
   time_t time_expiration;
   T_ACCOUNT *account;
@@ -77,9 +77,11 @@ typedef struct S_CONFIG {
   int network_interface;
   int payment_interface;
   char ngp_interface[MAX_INTERFACE_LEN];
+  char account_id[35];
   int64_t default_price;
   int64_t grace_period_price;
-  int grace_period_time;
+  int contract_data;
+  int contract_time;
   int data_renewal;
   int time_renewal;
 } T_CONFIG;
@@ -103,9 +105,9 @@ typedef struct S_NETWORK_INTERFACE {
 
 typedef struct S_PAYMENT_INTERFACE {
   int identifier;
-  void (*payment_init)();
+  int (*payment_init)();
   void (*send_payment)(struct interface_id_udp *interface, char *address, int64_t price);
-  void (*payment_destroy)();
+  void (*payment_destroy)(int pid_payment);
 } T_PAYMENT_INTERFACE;
 
 static T_CONFIG read_config();
