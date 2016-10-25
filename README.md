@@ -54,7 +54,7 @@ To get started right away with one machine, here's a guide on how to test it out
 To test out communication between two hosts, make sure that both are running ngp successfully as above. Then:
 
 1. Make sure that when ngp is not running on either host, the client is able to route its packets through the server.
-2. Edit net.conf and make sure NGP_INTERFACE is the ip address of your server.
+2. Edit net.conf on the client and make sure NGP_INTERFACE is the ip address of your server.
 3. Until it's made configurable, ngp assumes that the client and server communicate over the interface eth0. If that's not right for you, change it on line 30 of network_ipv4.c, and recompile.
 4. It's also assumed that the interface for hosts upstream of the server will be wlan0. If that's not right for you, change it at line 17 of network_ipv4.c and recompile.
 5. Run on server: sudo ./ngp start (add the flag -v if you want to see log messages printed to the command line)
