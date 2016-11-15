@@ -148,12 +148,10 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       if (current_state->status != PROPOSE) {
         printf("Not ready to receive accept.\n");
       } else {
-        if (deliver_service(current_state, config)) {
           long int grace_period_data = config->grace_period_price / current_state->price;
           network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, time(NULL) + config->contract_time, grace_period_data);
           current_state->account->balance -= config->grace_period_price;
           current_state->status = BEGIN;
-        }
       }
     } else if (strcmp(argument,"reject") == 0) {
       char *price_arg = strsep(&message," ");
@@ -171,6 +169,16 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     sprintf(current_message, "%s propose %lli %u %s", current_state->address, (long long int)current_state->price, (unsigned int)current_state->time_expiration, config->account_id);
     link_interface.link_send(current_state->interface_id, current_message);
     current_state->status = PROPOSE;
+      }
+    } else if (strcmp(argument,"payment") == 0) {
+      char *price_arg = strsep(&message," ");
+      if (price_arg == NULL) {
+    printf("Price not provided for payment.\n");
+      } else if (current_state->status != BEGIN) {
+    printf("Not ready to receive payment.\n");
+      } else {
+      current_state->account->balance += (int64_t)strtol(price_arg,NULL,10);
+      network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, current_state->time_expiration, CONTRACT_DATA_SIZE);
       }
     } else {
       printf("Invalid message type.\n");
@@ -274,16 +282,18 @@ int start(bool verbose)
   if (!verbose) {
     close(STDIN_FILENO);
     if (open("/dev/null",O_RDONLY) == -1) {
-      printf("failed to reopen stdin while daemonizing (errno=%d)",errno);
+      printf("failed to reopen stdin while daemonizing (errno=%d)\n",errno);
       exit(EXIT_FAILURE);
     }
     int logfile_fileno = open(LOG_PATH,O_RDWR|O_CREAT|O_APPEND,S_IRUSR|S_IWUSR|S_IRGRP);
     if (logfile_fileno == -1) {
-      printf("failed to open logfile (errno=%d)",errno);
+      printf("failed to open logfile (errno=%d)\n",errno);
       exit(EXIT_FAILURE);
     }
+
     dup2(logfile_fileno,STDOUT_FILENO);
     dup2(logfile_fileno,STDERR_FILENO);
+    dprintf(STDOUT_FILENO, "Begin writing to log\n");
     close(logfile_fileno);
   }
 

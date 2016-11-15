@@ -14,7 +14,7 @@ T_NETWORK_INTERFACE network_ipv4_interface() {
 pid_t network_ipv4_init(T_STATE states[], int *new_connection) {
   system("iptables -P FORWARD DROP");
   //Make the interfaces that we whitelist configurable
-  system("iptables -I FORWARD -i wlan0 -j ACCEPT");
+  system("iptables -I FORWARD -i eth1 -j ACCEPT");
 }
 
 static int get_local_ip_addr(char *address) {
@@ -199,11 +199,11 @@ int sniff_datagram_ipv4(char *buffer, char *src_address, char *dst_address, char
   memset(&dst_addr, 0, sizeof(dst_addr));
   dst_addr.sin_addr.s_addr = iph->daddr;
 
-  strcpy(src_address, inet_ntoa(src_addr.sin_addr));
   strcpy(dst_address, inet_ntoa(dst_addr.sin_addr));
 
   if (strcmp("127.0.0.1",dst_address) == 0 ||
       strcmp("255.255.255.255",dst_address) == 0 ||
+      strcmp("0.0.0.0",dst_address) == 0 ||
       strcmp(dst_address,ngp_interface) == 0) {
     return 0;
   }
@@ -219,6 +219,7 @@ int sniff_datagram_ipv4(char *buffer, char *src_address, char *dst_address, char
   route_lookup(dst_address, next_hop);
   if (strcmp(ngp_interface,next_hop) == 0) {
     *packet_size = iph->tot_len >> 8;
+    strcpy(src_address, local_addr);
     return 1;
   }
   return 0;
