@@ -1,5 +1,5 @@
 - Change the firewall to a blacklist rather than a whitelist, so there is no race condition for the first kb or so of data being blocked, and so the request message can be removed.
-- Create a new payment class to implement sending and receiving bitcoin or possibly some other crypto
+- Test bitcoin payment and write documentation for it
 - Make contract data size configurable
 - Make gated and non-gated interfaces either configurable or automatic
 - Refactor to remove all the unnecessary string manipulation
