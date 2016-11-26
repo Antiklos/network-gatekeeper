@@ -37,7 +37,6 @@ int payment_bitcoin_init() {
 
       int tx_found = atoi(output);
       while(tx_found > tx_number) {
-        printf("tx_found is %i and tx_number is %i so checking value\n",tx_found, tx_number);
         bzero(cbuffer, 256);
         sprintf(command, "electrum history | jq '.[%i].value * 100000000'",tx_number);
         p = popen(command, "r");
@@ -87,9 +86,9 @@ void send_payment_bitcoin(struct interface_id_udp *interface, char *address, int
   char buffer[256];
   char *command = buffer;
   double price_double = price / 100000000.0f;
-  sprintf(command, "electrum payto %s %.8f", address, price_double);
+  sprintf(command, "electrum broadcast $(electrum payto %s %.8f -W testio | jq -r '.hex')", address, price_double);
   printf("Sending bitoin payment with command %s\n",command);
-  //system(command);
+  system(command);
 }
 
 void payment_bitcoin_destroy(int pid_payment) {

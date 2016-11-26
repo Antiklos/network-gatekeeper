@@ -51,16 +51,29 @@ To get started right away with one machine, here's a guide on how to test it out
 3. Start the server: sudo ./ngp start -v
 4. Now test that the server is receiving messages on the local unix socket: sudo ./ngp server test
 
-To test out communication between two hosts, make sure that both are running ngp successfully as above. Then:
+To test real communication using the test framework:
+1. Download and install Common Open Research Emulator from here: https://www.nrl.navy.mil/itd/ncs/products/core
+2. Run the test: sudo python test.py
+
+The test will print out the contents of the logs for all nodes into the console.
+
+To test out communication over a real network with real payments, make sure that both are running ngp successfully as above. 
+
+WARNING! You are responsible for your own bitcoin. Put only as much as the program needs into your wallet.
+
+Then:
 
 1. Make sure that when ngp is not running on either host, the client is able to route its packets through the server.
-2. Edit net.conf on the client and make sure NGP_INTERFACE is the ip address of your server.
-3. Until it's made configurable, ngp assumes that the client and server communicate over the interface eth0. If that's not right for you, change it on line 30 of network_ipv4.c, and recompile.
-4. It's also assumed that the interface for hosts upstream of the server will be wlan0. If that's not right for you, change it at line 17 of network_ipv4.c and recompile.
-5. Run on server: sudo ./ngp start (add the flag -v if you want to see log messages printed to the command line)
-6. Run on client: sudo ./ngp start (add the flag -v if you want to see log messages printed to the command line)
-7. On the client, ping something or do something that will try to route data across your server. Notice that if you pinged something requiring a DNS request, it will take a few seconds to return, because the first message was actually blocked by the server before the grace period could be implemented.
-8. When you're finished, run on client: sudo ./ngp stop
-9. Run on server: sudo ./ngp stop
+3. Make sure Electrum is running on both client and server, and that they are synced with the network.
+4. Edit net.conf on the client and make sure NGP_INTERFACE is the ip address of your server.
+5. Until it's made configurable, ngp assumes that the client and server communicate over the interface eth0. If that's not right for you, change it on line 30 of network_ipv4.c, and recompile.
+6. It's also assumed that the interface for hosts upstream of the server will be wlan0. If that's not right for you, change it at line 17 of network_ipv4.c and recompile.
+7. Change the ACCOUNT_ID in net.conf on both client and server to the public bitcoin address that you would like to use to receive payment.
+8. Change the PAYMENT_INTERFACE in net.conf on both client and server to 2
+9. Run on server: sudo ./ngp start (add the flag -v if you want to see log messages printed to the command line)
+10. Run on client: sudo ./ngp start (add the flag -v if you want to see log messages printed to the command line)
+11. On the client, ping something or do something that will try to route data across your server. Notice that if you pinged something requiring a DNS request, it will take a few seconds to return, because the first message was actually blocked by the server before the grace period could be implemented.
+12. When you're finished, run on client: sudo ./ngp stop
+13. Run on server: sudo ./ngp stop
 
 

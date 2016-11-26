@@ -17,10 +17,7 @@ struct interface_id_udp* link_find_interface_udp(struct interface_id_udp interfa
     int i;
     for (i = 0; i < *new_connection; i++) {
       if (interfaces[i].sockfd == sockfd || strcmp(interfaces[i].ip_addr_dst, ip_addr_dst) == 0) {
-      current_interface = &interfaces[i];
-      printf("Found previous interface for ip_addr %s outport %u inport %u and sockfd %i\n",
-        current_interface->ip_addr_dst, current_interface->outgoing_port, current_interface->incoming_port, current_interface->sockfd);
-      //break;
+        current_interface = &interfaces[i];
       }
     }
     if (current_interface == NULL) {
@@ -69,7 +66,6 @@ struct interface_id_udp* link_receive_udp(struct interface_id_udp interfaces[], 
 }
 
 void link_send_udp(struct interface_id_udp *interface_id, char *message) {
-  printf("About to send message: %s\n",message);
   char buffer[CHAR_BUFFER_LEN];
   strcpy(buffer, interface_id->ip_addr_src);
   char port[8];

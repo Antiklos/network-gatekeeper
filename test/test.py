@@ -1,8 +1,13 @@
 #!/usr/bin/python
 
 import time
+import sys
+import shutil
 from core import netns
 from core import pycore
+
+def ncmd(node, args):
+  return node.redircmd(sys.stdin.fileno(),sys.stdout.fileno(),sys.stdout.fileno(),args)
 
 session = pycore.Session(persistent=True)
 
@@ -10,11 +15,8 @@ ptpnet1 = netns.nodes.PtpNet(session)
 ptpnet2 = netns.nodes.PtpNet(session)
 
 n1 = session.addobj(cls = pycore.nodes.CoreNode, name="n1")
-n1.setposition(x=850.0,y=381.0)
 router = session.addobj(cls = pycore.nodes.CoreNode, name="router")
-router.setposition(x=528.0,y=100.0)
 n2 = session.addobj(cls = pycore.nodes.CoreNode, name="n2")
-n2.setposition(x=275.0,y=372.0)
 router.newnetif(net=ptpnet1, addrlist=["10.0.1.1/24"], ifindex=0)
 router.newnetif(net=ptpnet2, addrlist=["10.0.2.1/24"], ifindex=1)
 n1.newnetif(net=ptpnet1, addrlist=["10.0.1.10/24"], ifindex=0)
@@ -28,21 +30,20 @@ router.nodefilecopy("net.conf","../net.conf")
 n1.nodefilecopy("ngp","../ngp")
 n1.nodefilecopy("net.conf","../net.conf")
 
-router.icmd(["./ngp","start"])
-n1.icmd(["./ngp","start"])
 time.sleep(1)
-n1.icmd(["ping", "-c", "5", "10.0.2.10"])
+ncmd(router,["sudo","./ngp","start"])
+ncmd(n1,["sudo","./ngp","start"])
 
 time.sleep(1)
+ncmd(n1,["ping", "-c", "5", "10.0.2.10"])
 
-n1.icmd(["./ngp","stop"])
-router.icmd(["./ngp","stop"])
+time.sleep(1)
+ncmd(n1,["sudo","./ngp","stop"])
+ncmd(router,["sudo","./ngp","stop"])
 
-time.sleep(2)
+time.sleep(1)
+ncmd(router,["sudo","cat","/var/log/network_gatekeeper.log"])
+ncmd(n1,["sudo","cat","/var/log/network_gatekeeper.log"])
 
-#router.icmd(["cat","/var/log/network_gatekeeper.log"])
-#n1.icmd(["cat","/var/log/network_gatekeeper.log"])
-
-time.sleep(3)
-
+time.sleep(1)
 session.shutdown()

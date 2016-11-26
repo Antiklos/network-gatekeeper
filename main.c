@@ -134,10 +134,14 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       strcpy(current_message, current_state->address);
       strcat(current_message, " accept");
       link_interface.link_send(current_state->interface_id, current_message);
-      int64_t payment = MAX_PAYMENT;
-      payment_interface.send_payment(current_state->interface_id, current_state->account->account_id, payment);
-      current_state->bytes_sent = 0;
-      //current_state->account->balance -= payment;
+      current_state->account->balance -= current_state->price;
+
+      if (current_state->account->balance < 0) {
+        int64_t payment = MAX_PAYMENT;
+        payment_interface.send_payment(current_state->interface_id, current_state->account->account_id, payment);
+        current_state->bytes_sent = 0;
+        current_state->account->balance += payment;
+      }
     } else {
       current_state->status = REJECT;
       sprintf(current_message, "%s propose %lli %u", current_state->address, (long long int)current_state->price, (unsigned int)current_state->time_expiration);
@@ -202,7 +206,6 @@ static T_STATE* find_state(T_STATE states[], int *new_contract, T_ACCOUNT accoun
     if (states[i].interface_id != NULL && strcmp(states[i].interface_id->ip_addr_dst,interface_id->ip_addr_dst) == 0) {
       if (strcmp(states[i].address,address) == 0) {
         current_state = &states[i];
-        printf("Found previous state for identifier %s and address %s\n",interface_id->ip_addr_dst, address);
       }
       current_account = states[i].account;
     }
@@ -214,9 +217,11 @@ static T_STATE* find_state(T_STATE states[], int *new_contract, T_ACCOUNT accoun
     strcpy(current_state->address, address);
     current_state->status = DEFAULT;
     current_state->price = 0;
+    current_state->bytes_sent = 0;
     if (current_account == NULL) {
       current_state->account = &accounts[*new_account];
       *new_account = *new_account + 1;
+      current_state->account->balance = 0;
     } else {
       current_state->account = current_account;
     }
@@ -255,6 +260,7 @@ int start(bool verbose)
 
   /* Fork off the parent process */
   pid = fork();
+
   if (pid < 0) {
     exit(EXIT_FAILURE);
   } 
@@ -269,13 +275,11 @@ int start(bool verbose)
   /* Create a new SID for the child process */
   sid = setsid();
   if (sid < 0) {
-    /* Log the failure */
     exit(EXIT_FAILURE);
   }
 
   /* Change the current working directory */
   if ((chdir("/")) < 0) {
-    /* Log the failure */
     exit(EXIT_FAILURE);
   }
 
@@ -285,6 +289,7 @@ int start(bool verbose)
       printf("failed to reopen stdin while daemonizing (errno=%d)\n",errno);
       exit(EXIT_FAILURE);
     }
+
     int logfile_fileno = open(LOG_PATH,O_RDWR|O_CREAT|O_APPEND,S_IRUSR|S_IWUSR|S_IRGRP);
     if (logfile_fileno == -1) {
       printf("failed to open logfile (errno=%d)\n",errno);
@@ -293,8 +298,8 @@ int start(bool verbose)
 
     dup2(logfile_fileno,STDOUT_FILENO);
     dup2(logfile_fileno,STDERR_FILENO);
-    dprintf(STDOUT_FILENO, "Begin writing to log\n");
     close(logfile_fileno);
+    setbuf(stdout, NULL);
   }
 
   int cli_sockfd, link_sockfd;
@@ -368,7 +373,8 @@ int start(bool verbose)
           T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, dst_address);
           current_state->bytes_sent += packet_size;
 
-          if (current_state->status == DEFAULT || (current_state->bytes_sent + config.data_renewal > config.contract_data * 1024) || (current_state->time_expiration - time(NULL) < config.time_renewal)) {
+          if (current_state->status == DEFAULT || (current_state->bytes_sent + config.data_renewal > config.contract_data * 1024) 
+              || (current_state->status == ACCEPT && (current_state->time_expiration - time(NULL) < config.time_renewal))) {
             current_state->status = REQUEST;
             char message[CHAR_BUFFER_LEN];
             sprintf(&message[0],"%s request %s",dst_address, config.account_id);
@@ -407,7 +413,6 @@ int start(bool verbose)
         if (current_interface == NULL) {
           printf("Unable to find current interface\n");
         } else {
-          printf("About to parse message %s\n",message);
           char *address = strsep(&message," ");
 
           if (strcmp(address,"payment") == 0) {
@@ -440,6 +445,7 @@ int start(bool verbose)
   close(scan_sockfd);
   network_interface.network_destroy(net_pid);
   payment_interface.payment_destroy(payment_pid);
+  fflush(stdout);
   exit(EXIT_SUCCESS);
   return 0;
 }
