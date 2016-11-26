@@ -86,7 +86,7 @@ void send_payment_bitcoin(struct interface_id_udp *interface, char *address, int
   char buffer[256];
   char *command = buffer;
   double price_double = price / 100000000.0f;
-  sprintf(command, "electrum broadcast $(electrum payto %s %.8f -W testio | jq -r '.hex')", address, price_double);
+  sprintf(command, "electrum broadcast $(electrum payto %s %.8f -W password | jq -r '.hex')", address, price_double);
   printf("Sending bitoin payment with command %s\n",command);
   system(command);
 }
