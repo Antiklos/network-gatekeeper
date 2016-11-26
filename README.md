@@ -52,6 +52,7 @@ To get started right away with one machine, here's a guide on how to test it out
 4. Now test that the server is receiving messages on the local unix socket: sudo ./ngp server test
 
 To test real communication using the test framework:
+
 1. Download and install Common Open Research Emulator from here: https://www.nrl.navy.mil/itd/ncs/products/core
 2. Run the test: sudo python test.py
 
