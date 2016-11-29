@@ -11,11 +11,8 @@
 #include <ifaddrs.h>
 
 #include "main.h"
-#include "link_test.c"
 #include "link_udp.c"
-#include "network_test.c"
 #include "network_ipv4.c"
-#include "payment_test.c"
 #include "payment_simulate.c"
 #include "payment_bitcoin.c"
 #include "contract.c"
@@ -243,11 +240,8 @@ int start(bool verbose)
   T_PAYMENT_INTERFACE payment_interfaces[PAYMENT_INTERFACES_NUMBER];
 
   //Populate interface arrays
-  link_interfaces[LINK_INTERFACE_TEST_IDENTIFIER] = link_test_interface();
   link_interfaces[LINK_INTERFACE_UDP_IDENTIFIER] = link_udp_interface();
-  network_interfaces[NETWORK_INTERFACE_TEST_IDENTIFIER] = network_test_interface();
   network_interfaces[NETWORK_INTERFACE_IPV4_IDENTIFIER] = network_ipv4_interface();
-  payment_interfaces[PAYMENT_INTERFACE_TEST_IDENTIFIER] = payment_test_interface();
   payment_interfaces[PAYMENT_INTERFACE_SIMULATE_IDENTIFIER] = payment_simulate_interface();
   payment_interfaces[PAYMENT_INTERFACE_BITCOIN_IDENTIFIER] = payment_bitcoin_interface();
 
@@ -374,7 +368,7 @@ int start(bool verbose)
         unsigned int packet_size;
          
         if (network_interface.sniff_datagram(buffer,src_address,dst_address,next_hop_address,config.ngp_interface,&packet_size) == 1) {
-          struct interface_id_udp *current_interface = link_interface.link_find_interface(interface_ids, &new_connection, 0, src_address, next_hop_address);
+          struct interface_id_udp *current_interface = link_interface.link_find_interface(interface_ids, &new_connection, 0, NULL, src_address, next_hop_address);
           T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, dst_address);
           current_state->bytes_sent += packet_size;
 

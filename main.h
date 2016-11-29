@@ -90,7 +90,7 @@ typedef struct S_CONFIG {
 typedef struct S_LINK_INTERFACE {
   int identifier;
   void (*link_init)();
-  struct interface_id_udp* (*link_find_interface)(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char *ip_addr_src, char *ip_addr_dst);
+  struct interface_id_udp* (*link_find_interface)(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char *interface_id, char *ip_addr_src, char *ip_addr_dst);
   struct interface_id_udp* (*link_receive)(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char** message);
   void (*link_send)(struct interface_id_udp *interface_id, char *message);
   void (*link_destroy)();

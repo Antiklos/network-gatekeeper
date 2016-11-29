@@ -12,7 +12,7 @@ T_LINK_INTERFACE link_udp_interface() {
   return interface;
 }
 
-struct interface_id_udp* link_find_interface_udp(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char *ip_addr_src, char *ip_addr_dst) {
+struct interface_id_udp* link_find_interface_udp(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char *interface_id, char *ip_addr_src, char *ip_addr_dst) {
     struct interface_id_udp *current_interface = NULL;
     int i;
     for (i = 0; i < *new_connection; i++) {
@@ -60,7 +60,7 @@ struct interface_id_udp* link_receive_udp(struct interface_id_udp interfaces[], 
     printf("No port provided.\n");
     return NULL;
   }
-  struct interface_id_udp *current_interface = link_find_interface_udp(interfaces, new_connection, sockfd, NULL, ip_addr);
+  struct interface_id_udp *current_interface = link_find_interface_udp(interfaces, new_connection, sockfd, NULL, NULL, ip_addr);
   current_interface->outgoing_port = (unsigned int)strtol(port,NULL,10);
   return current_interface;
 }
