@@ -11,10 +11,12 @@ T_NETWORK_INTERFACE network_ipv4_interface() {
   return interface;
 }
 
-pid_t network_ipv4_init(T_STATE states[], int *new_connection) {
+pid_t network_ipv4_init(T_STATE states[], int *new_connection, char *ignore_interface) {
   system("iptables -P FORWARD DROP");
-  //Make the interfaces that we whitelist configurable
-  system("iptables -I FORWARD -i eth1 -j ACCEPT");
+
+  char command[IFNAMSIZ + 64];
+  sprintf(command, "iptables -I FORWARD -i %s -j ACCEPT",ignore_interface);
+  system(command);
 }
 
 static int get_local_ip_addr(char *address) {

@@ -12,7 +12,7 @@ T_NETWORK_INTERFACE network_test_interface() {
   return interface;
 }
 
-pid_t network_test_init(T_STATE states[], int *new_connection) {
+pid_t network_test_init(T_STATE states[], int *new_connection, char *ignore_interface) {
   printf("Executing network_test_init\n");
 }
 

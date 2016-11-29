@@ -68,7 +68,7 @@ Then:
 3. Make sure Electrum is running on both client and server, and that they are synced with the network.
 4. Edit net.conf on the client and make sure NGP_INTERFACE is the ip address of your server.
 5. Until it's made configurable, ngp assumes that the client and server communicate over the interface eth0. If that's not right for you, change it on line 30 of network_ipv4.c, and recompile.
-6. It's also assumed that the interface for hosts upstream of the server will be wlan0. If that's not right for you, change it at line 17 of network_ipv4.c and recompile.
+6. Change the IGNORE_INTERFACE in net.conf to the interface on the server for the default gatway that doesn't connect to another instance of ngp.
 7. Change the ACCOUNT_ID in net.conf on both client and server to the public bitcoin address that you would like to use to receive payment.
 8. Change the PAYMENT_INTERFACE in net.conf on both client and server to 2
 9. Set your electrum wallet password to "password"
