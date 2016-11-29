@@ -10,7 +10,7 @@
 
 T_NETWORK_INTERFACE network_ipv4_interface();
 
-pid_t network_ipv4_init(T_STATE states[], int *new_connection);
+pid_t network_ipv4_init(T_STATE states[], int *new_connection, char *ignore_interface);
 
 int sniff_datagram_ipv4(char *buffer, char *src_addr, char *dst_addr, char *next_hop, char *ngp_interface, unsigned int *packet_size);
 

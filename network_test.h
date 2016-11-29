@@ -8,7 +8,7 @@
 
 T_NETWORK_INTERFACE network_test_interface();
 
-pid_t network_test_init(T_STATE states[], int *new_connection);
+pid_t network_test_init(T_STATE states[], int *new_connection, char *ignore_interface);
 
 int sniff_datagram_test(char *buffer, char *src_addr, char *dst_addr, char *next_hop, char *ngp_interface, unsigned int *packet_size);
 

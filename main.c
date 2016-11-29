@@ -74,6 +74,10 @@ static T_CONFIG read_config()
   strsep(&buffer,"=");
   config.time_renewal = (int)strtol(buffer,NULL,10);
 
+  fscanf(file,"%s\n",buffer);
+  strsep(&buffer,"=");
+  strcpy(config.ignore_interface,buffer);
+
   return config;
 }
 
@@ -329,7 +333,8 @@ int start(bool verbose)
   struct sockaddr_in sock_addr;
   socklen_t sock_len = sizeof(sock_addr);
 
-  pid_t net_pid = network_interface.network_init(states, &new_contract);
+  char *ignore_interface = config.ignore_interface;
+  pid_t net_pid = network_interface.network_init(states, &new_contract, ignore_interface);
   pid_t payment_pid = payment_interface.payment_init();
 
   int saddr_size, data_size;
