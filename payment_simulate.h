@@ -10,7 +10,7 @@ T_PAYMENT_INTERFACE payment_simulate_interface();
 
 int payment_simulate_init();
 
-void send_payment_simulate(struct interface_id_udp *interface, char *address, int64_t price);
+void send_payment_simulate(T_INTERFACE *interface, char *address, int64_t price);
 
 void payment_simulate_destroy(int pid_payment);
 

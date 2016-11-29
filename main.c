@@ -114,7 +114,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     char *account_id = strsep(&message," ");
     strcpy(current_state->account->account_id, account_id);
     sprintf(current_message, "%s propose %lli %u %s", current_state->address, (long long int)current_state->price, (unsigned int)current_state->time_expiration, config->account_id);
-    link_interface.link_send(current_state->interface_id, current_message);
+    link_interface.link_send(current_state->interface, current_message);
       }
     } else if (strcmp(argument,"propose") == 0) {
       char *price_arg = strsep(&message," ");
@@ -134,19 +134,19 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       strcpy(current_state->account->account_id, account_id);
       strcpy(current_message, current_state->address);
       strcat(current_message, " accept");
-      link_interface.link_send(current_state->interface_id, current_message);
+      link_interface.link_send(current_state->interface, current_message);
       current_state->account->balance -= current_state->price;
 
       if (current_state->account->balance < 0) {
         int64_t payment = MAX_PAYMENT;
-        payment_interface.send_payment(current_state->interface_id, current_state->account->account_id, payment);
+        payment_interface.send_payment(current_state->interface, current_state->account->account_id, payment);
         current_state->bytes_sent = 0;
         current_state->account->balance += payment;
       }
     } else {
       current_state->status = REJECT;
       sprintf(current_message, "%s propose %lli %u", current_state->address, (long long int)current_state->price, (unsigned int)current_state->time_expiration);
-      link_interface.link_send(current_state->interface_id, current_message);
+      link_interface.link_send(current_state->interface, current_message);
     }
       }
     } else if (strcmp(argument,"accept") == 0) {
@@ -154,7 +154,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
         printf("Not ready to receive accept.\n");
       } else {
           long int grace_period_data = config->grace_period_price / current_state->price;
-          network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, time(NULL) + config->contract_time, grace_period_data);
+          network_interface.gate_interface(current_state->interface->net_addr_remote, current_state->address, time(NULL) + config->contract_time, grace_period_data);
           current_state->account->balance -= config->grace_period_price;
           current_state->status = BEGIN;
       }
@@ -172,7 +172,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     current_state->time_expiration = (time_t)strtol(time_expiration,NULL,10);
     evaluate_request(current_state, config);
     sprintf(current_message, "%s propose %lli %u %s", current_state->address, (long long int)current_state->price, (unsigned int)current_state->time_expiration, config->account_id);
-    link_interface.link_send(current_state->interface_id, current_message);
+    link_interface.link_send(current_state->interface, current_message);
     current_state->status = PROPOSE;
       }
     } else if (strcmp(argument,"payment") == 0) {
@@ -183,7 +183,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     printf("Not ready to receive payment.\n");
       } else {
       current_state->account->balance += (int64_t)strtol(price_arg,NULL,10);
-      network_interface.gate_interface(current_state->interface_id->ip_addr_dst, current_state->address, current_state->time_expiration, CONTRACT_DATA_SIZE);
+      network_interface.gate_interface(current_state->interface->net_addr_remote, current_state->address, current_state->time_expiration, CONTRACT_DATA_SIZE);
       }
     } else {
       printf("Invalid message type.\n");
@@ -199,12 +199,12 @@ static T_ACCOUNT* find_account(T_ACCOUNT accounts[], int new_account, char *acco
   }
 }
 
-static T_STATE* find_state(T_STATE states[], int *new_contract, T_ACCOUNT accounts[], int *new_account, struct interface_id_udp *interface_id, char *address) {
+static T_STATE* find_state(T_STATE states[], int *new_contract, T_ACCOUNT accounts[], int *new_account, T_INTERFACE *interface, char *address) {
   T_STATE *current_state = NULL;
   T_ACCOUNT *current_account = NULL;
   int i;
   for (i = 0; i < *new_contract; i++) {
-    if (states[i].interface_id != NULL && strcmp(states[i].interface_id->ip_addr_dst,interface_id->ip_addr_dst) == 0) {
+    if (states[i].interface != NULL && strcmp(states[i].interface->net_addr_remote,interface->net_addr_remote) == 0) {
       if (strcmp(states[i].address,address) == 0) {
         current_state = &states[i];
       }
@@ -214,7 +214,7 @@ static T_STATE* find_state(T_STATE states[], int *new_contract, T_ACCOUNT accoun
   if (current_state == NULL) {
     current_state = &states[*new_contract];
     *new_contract = *new_contract + 1;
-    current_state->interface_id = interface_id;
+    current_state->interface = interface;
     strcpy(current_state->address, address);
     current_state->status = DEFAULT;
     current_state->price = 0;
@@ -226,7 +226,7 @@ static T_STATE* find_state(T_STATE states[], int *new_contract, T_ACCOUNT accoun
     } else {
       current_state->account = current_account;
     }
-    printf("Creating new state for identifier %s and address %s\n",interface_id->ip_addr_dst, address);
+    printf("Creating new state for identifier %s and address %s\n",interface->net_addr_remote, address);
   }
 
   return current_state;
@@ -314,7 +314,7 @@ int start(bool verbose)
 
   //Set up loop for events
   T_STATE states[MAX_CONTRACTS];
-  struct interface_id_udp interface_ids[MAX_CONNECTIONS];
+  T_INTERFACE interfaces[MAX_CONNECTIONS];
   T_ACCOUNT accounts[MAX_ACCOUNTS];
   int new_contract = 0;
   int new_connection = 0;
@@ -346,7 +346,7 @@ int start(bool verbose)
     data_size = 0;
     int fds[new_connection + 3];
     for (i = 0; i < new_connection; i++) {
-      fds[i] = interface_ids[i].sockfd;
+      fds[i] = interfaces[i].sockfd;
     }
     fds[new_connection] = cli_sockfd;
     fds[new_connection + 1] = link_sockfd;
@@ -368,7 +368,7 @@ int start(bool verbose)
         unsigned int packet_size;
          
         if (network_interface.sniff_datagram(buffer,src_address,dst_address,next_hop_address,config.ngp_interface,&packet_size) == 1) {
-          struct interface_id_udp *current_interface = link_interface.link_find_interface(interface_ids, &new_connection, 0, NULL, src_address, next_hop_address);
+          T_INTERFACE *current_interface = link_interface.link_find_interface(interfaces, &new_connection, 0, NULL, src_address, next_hop_address);
           T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, dst_address);
           current_state->bytes_sent += packet_size;
 
@@ -408,7 +408,7 @@ int start(bool verbose)
         }
       } else {
         char *message = buffer;
-        struct interface_id_udp *current_interface = link_interface.link_receive(interface_ids, &new_connection, fd, &message);
+        T_INTERFACE *current_interface = link_interface.link_receive(interfaces, &new_connection, fd, &message);
         if (current_interface == NULL) {
           printf("Unable to find current interface\n");
         } else {
@@ -437,7 +437,7 @@ int start(bool verbose)
   }
 
   for (i = 0; i < new_connection; i++) {
-    close(interface_ids[i].sockfd);
+    close(interfaces[i].sockfd);
   }
   close(cli_sockfd);
   close(link_sockfd);

@@ -82,7 +82,7 @@ int payment_bitcoin_init() {
   return pay_pid;
 }
 
-void send_payment_bitcoin(struct interface_id_udp *interface, char *address, int64_t price) {
+void send_payment_bitcoin(T_INTERFACE *interface, char *address, int64_t price) {
   char buffer[256];
   char *command = buffer;
   double price_double = price / 100000000.0f;

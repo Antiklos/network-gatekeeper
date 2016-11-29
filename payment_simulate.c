@@ -15,7 +15,7 @@ int payment_simulate_init() {
   return 0;
 }
 
-void send_payment_simulate(struct interface_id_udp *interface, char *address, int64_t price) {
+void send_payment_simulate(T_INTERFACE *interface, char *address, int64_t price) {
   char current_message[CHAR_BUFFER_LEN];
   sprintf(current_message, "payment %s %lli", address, (long long int)price);
 
