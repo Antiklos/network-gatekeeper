@@ -192,40 +192,17 @@ static int route_lookup(char *address, char *next_hop) {
   return found_gatewayip;
 }
 
-int sniff_datagram_ipv4(char *buffer, char *src_address, char *dst_address, char *next_hop, char *ngp_interface, unsigned int *packet_size) {
+int sniff_datagram_ipv4(char *buffer, char *dst_address, unsigned int *packet_size) {
   struct iphdr *iph = (struct iphdr*)(buffer + sizeof(struct ethhdr));
-  struct sockaddr_in src_addr,dst_addr;
-
-  memset(&src_addr, 0, sizeof(src_addr));
-  src_addr.sin_addr.s_addr = iph->saddr;
+  struct sockaddr_in dst_addr;
 
   memset(&dst_addr, 0, sizeof(dst_addr));
   dst_addr.sin_addr.s_addr = iph->daddr;
 
   strcpy(dst_address, inet_ntoa(dst_addr.sin_addr));
 
-  if (strcmp("127.0.0.1",dst_address) == 0 ||
-      strcmp("255.255.255.255",dst_address) == 0 ||
-      strcmp("0.0.0.0",dst_address) == 0 ||
-      strcmp(dst_address,ngp_interface) == 0) {
-    return 0;
-  }
-
-  char addr_buffer[CHAR_BUFFER_LEN];
-  char *local_addr = addr_buffer;
-  get_local_ip_addr(local_addr);
-
-  if (strcmp(local_addr,dst_address) == 0) {
-    return 0;
-  }
-  
-  route_lookup(dst_address, next_hop);
-  if (strcmp(ngp_interface,next_hop) == 0) {
-    *packet_size = iph->tot_len >> 8;
-    strcpy(src_address, local_addr);
-    return 1;
-  }
-  return 0;
+  *packet_size = iph->tot_len >> 8;
+  return 1;
 }
 
 void gate_interface_ipv4(char *src_addr, char *dst_addr, time_t time_expiration, long int kb) {

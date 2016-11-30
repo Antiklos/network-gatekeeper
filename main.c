@@ -78,23 +78,26 @@ static T_CONFIG read_config()
   return config;
 }
 
-int create_udp_socket(unsigned int *port) {
+int create_udp_socket(char *interface_id, bool cli) {
   struct sockaddr_in serv_in_addr;
   int sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
   if (sockfd < 0) { 
     printf("ERROR opening socket\n");
   }
   serv_in_addr.sin_family = AF_INET;
-  serv_in_addr.sin_port = htons(*port);
   serv_in_addr.sin_addr.s_addr = htonl(INADDR_ANY);
   socklen_t sock_len = sizeof(serv_in_addr);
+  if (cli) {
+    serv_in_addr.sin_port = htons(UNIX_UDP_PORT);
+  } else {
+    serv_in_addr.sin_port = htons(LINK_UDP_DEFAULT_PORT);
+    setsockopt(sockfd, SOL_SOCKET, SO_BINDTODEVICE, interface_id, strlen(interface_id) + 1 );
+  }
   int result = bind(sockfd, (struct sockaddr *) &serv_in_addr, sock_len);
   if (result < 0) {
     printf("Binding error %i getting INET socket. Are you running as root?\n",result);
     return -1;
   }
-  getsockname(sockfd, (struct sockaddr *) &serv_in_addr, (socklen_t *) &sock_len);
-  *port = ntohs(serv_in_addr.sin_port);
   printf("Created udp socket for port %u and sockfd %i\n",ntohs(serv_in_addr.sin_port),sockfd);
   return sockfd;
 }
@@ -300,17 +303,13 @@ int start(bool verbose)
     setbuf(stdout, NULL);
   }
 
-  int cli_sockfd, link_sockfd;
+  int cli_sockfd;
   socklen_t clilen;
   int result, n;
 
   //Set up socket for CLI communication
   int unix_udp_port = UNIX_UDP_PORT;
-  cli_sockfd = create_udp_socket(&unix_udp_port);
-
-  //Set up socket for INET communication
-  int default_port = LINK_UDP_DEFAULT_PORT;
-  link_sockfd = create_udp_socket(&default_port);
+  cli_sockfd = create_udp_socket(NULL, true);
 
   //Set up loop for events
   T_STATE states[MAX_CONTRACTS];
@@ -328,6 +327,7 @@ int start(bool verbose)
   socklen_t sock_len = sizeof(sock_addr);
 
   char *ignore_interface = config.ignore_interface;
+  link_interface.link_init(interfaces, &new_connection);
   pid_t net_pid = network_interface.network_init(states, &new_contract, ignore_interface);
   pid_t payment_pid = payment_interface.payment_init();
 
@@ -344,74 +344,13 @@ int start(bool verbose)
   while(command_result > -1) {
     bzero(buffer,PACKET_BUFFER_SIZE);
     data_size = 0;
-    int fds[new_connection + 3];
-    for (i = 0; i < new_connection; i++) {
-      fds[i] = interfaces[i].sockfd;
-    }
-    fds[new_connection] = cli_sockfd;
-    fds[new_connection + 1] = link_sockfd;
-    fds[new_connection + 2] = scan_sockfd;
 
     for (i = 0; i < new_connection + 3; i++) {
-      data_size = recvfrom(fds[i] , buffer , PACKET_BUFFER_SIZE , MSG_DONTWAIT , &saddr , (socklen_t*)&saddr_size);
+      data_size = recvfrom(interfaces[i].sockfd , buffer , PACKET_BUFFER_SIZE , MSG_DONTWAIT , &saddr , (socklen_t*)&saddr_size);
       if (data_size > 0) {
-        fd = fds[i];
-        break;
-      }
-    }
-    
-    if (data_size > 0) {
-      if (fd == scan_sockfd) {
-        char src_address[CHAR_BUFFER_LEN];
-        char dst_address[CHAR_BUFFER_LEN];
-        char next_hop_address[CHAR_BUFFER_LEN];
-        unsigned int packet_size;
-         
-        if (network_interface.sniff_datagram(buffer,src_address,dst_address,next_hop_address,config.ngp_interface,&packet_size) == 1) {
-          T_INTERFACE *current_interface = link_interface.link_find_interface(interfaces, &new_connection, 0, NULL, src_address, next_hop_address);
-          T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, dst_address);
-          current_state->bytes_sent += packet_size;
-
-          if (current_state->status == DEFAULT || (current_state->bytes_sent + config.data_renewal > config.contract_data * 1024) 
-              || (current_state->status == ACCEPT && (current_state->time_expiration - time(NULL) < config.time_renewal))) {
-            current_state->status = REQUEST;
-            char message[CHAR_BUFFER_LEN];
-            sprintf(&message[0],"%s request %s",dst_address, config.account_id);
-            link_interface.link_send(current_interface, message);
-          }
-        }
-      } else if (fd == cli_sockfd) {
         char *message = buffer;
-        char *argument = strsep(&message," ");
-
-        if (strcmp(argument,"test") == 0) {
-          printf("Test OK\n");
-        }
-        else if (strcmp(argument,"stop") == 0) {
-          printf("Daemon stopping.\n");
-          command_result = -1;
-        }
-        else if (strcmp(argument,"payment") == 0) {
-          char *address = strsep(&message," ");
-          T_ACCOUNT *account = find_account(accounts, new_account, address);
-
-          if (account != NULL) {
-            char *price_arg = strsep(&message," ");
-            int64_t payment = (int64_t)strtol(price_arg,NULL,10);
-            account->balance += payment;
-          } else {
-            printf("No account found for account_id %s\n", address);
-          }
-        }
-        else {
-          printf("Invalid command sent to server.\n");
-        }
-      } else {
-        char *message = buffer;
-        T_INTERFACE *current_interface = link_interface.link_receive(interfaces, &new_connection, fd, &message);
-        if (current_interface == NULL) {
-          printf("Unable to find current interface\n");
-        } else {
+        T_INTERFACE *current_interface = link_interface.link_receive(&interfaces[i], &message);
+        if (current_interface != NULL) {
           char *address = strsep(&message," ");
 
           if (strcmp(address,"payment") == 0) {
@@ -427,6 +366,65 @@ int start(bool verbose)
             }
           }
         }
+        break;
+      }
+    }
+
+    for (i = 0; i < new_connection + 3; i++) {
+      data_size = recvfrom(interfaces[i].scan_sockfd , buffer , PACKET_BUFFER_SIZE , MSG_DONTWAIT , &saddr , (socklen_t*)&saddr_size);
+      if (data_size > 0) {
+        char dst_address[CHAR_BUFFER_LEN];
+        unsigned int packet_size;
+         
+        if (network_interface.sniff_datagram(buffer, dst_address, &packet_size) == 1) {
+          T_INTERFACE *current_interface = &interfaces[i];
+          T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, dst_address);
+          current_state->bytes_sent += packet_size;
+
+          if (current_state->status == DEFAULT || 
+               (current_state->status == ACCEPT && 
+                 (current_state->time_expiration - time(NULL) < config.time_renewal) || 
+                 (current_state->bytes_sent + config.data_renewal > config.contract_data * 1024)
+               )
+             ) 
+          {
+            evaluate_request(current_state, &config);
+            current_state->status = PROPOSE;
+            char message[CHAR_BUFFER_LEN];
+            sprintf(message, "%s propose %lli %u %s", current_state->address, (long long int)current_state->price, (unsigned int)current_state->time_expiration, config.account_id);
+            link_interface.link_send(current_state->interface, message);
+          }
+        }
+        break;
+      }
+    }
+
+    data_size = recvfrom(cli_sockfd , buffer , PACKET_BUFFER_SIZE , MSG_DONTWAIT , &saddr , (socklen_t*)&saddr_size);
+    if (data_size > 0) {
+      char *message = buffer;
+      char *argument = strsep(&message," ");
+
+      if (strcmp(argument,"test") == 0) {
+        printf("Test OK\n");
+      }
+      else if (strcmp(argument,"stop") == 0) {
+        printf("Daemon stopping.\n");
+        command_result = -1;
+      }
+      else if (strcmp(argument,"payment") == 0) {
+        char *address = strsep(&message," ");
+        T_ACCOUNT *account = find_account(accounts, new_account, address);
+
+        if (account != NULL) {
+          char *price_arg = strsep(&message," ");
+          int64_t payment = (int64_t)strtol(price_arg,NULL,10);
+          account->balance += payment;
+        } else {
+          printf("No account found for account_id %s\n", address);
+        }
+      }
+      else {
+        printf("Invalid command sent to server.\n");
       }
     }
 
@@ -438,10 +436,9 @@ int start(bool verbose)
 
   for (i = 0; i < new_connection; i++) {
     close(interfaces[i].sockfd);
+    close(interfaces[i].scan_sockfd);
   }
   close(cli_sockfd);
-  close(link_sockfd);
-  close(scan_sockfd);
   network_interface.network_destroy(net_pid);
   payment_interface.payment_destroy(payment_pid);
   fflush(stdout);

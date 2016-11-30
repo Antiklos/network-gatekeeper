@@ -55,8 +55,7 @@ typedef struct S_INTERFACE {
   char interface_id[IFNAMSIZ];
   char net_addr_local[16];
   char net_addr_remote[16];
-  unsigned int local_port;
-  unsigned int remote_port;
+  bool broadcast;
   int sockfd;
   int scan_sockfd;
 } T_INTERFACE;
@@ -90,9 +89,8 @@ typedef struct S_CONFIG {
 
 typedef struct S_LINK_INTERFACE {
   int identifier;
-  void (*link_init)();
-  T_INTERFACE* (*link_find_interface)(T_INTERFACE interfaces[], int *new_connection, int sockfd, char *interface_id, char *ip_addr_src, char *ip_addr_dst);
-  T_INTERFACE* (*link_receive)(T_INTERFACE interfaces[], int *new_connection, int sockfd, char** message);
+  void (*link_init)(T_INTERFACE interfaces[], int *new_connection);
+  T_INTERFACE* (*link_receive)(T_INTERFACE *current_interface, char** message);
   void (*link_send)(T_INTERFACE *interface_id, char *message);
   void (*link_destroy)();
 } T_LINK_INTERFACE;
@@ -100,7 +98,7 @@ typedef struct S_LINK_INTERFACE {
 typedef struct S_NETWORK_INTERFACE {
   int identifier;
   pid_t (*network_init)(T_STATE states[], int *new_connection, char *ignore_interface);
-  int (*sniff_datagram)(char *buffer, char *src_addr, char *dst_addr, char *next_hop, char *ngp_interface, unsigned int *packet_size);
+  int (*sniff_datagram)(char *buffer, char *dst_address, unsigned int *packet_size);
   void (*gate_interface)(char *src_addr, char *dst_addr, time_t time_expiration, long int bytes);
   void (*network_destroy)(pid_t net_pid);
 } T_NETWORK_INTERFACE;
@@ -113,7 +111,7 @@ typedef struct S_PAYMENT_INTERFACE {
 } T_PAYMENT_INTERFACE;
 
 static T_CONFIG read_config();
-
+int create_udp_socket(char *interface_id, bool cli);
 static T_STATE* find_state(T_STATE states[], int *new_contract, T_ACCOUNT accounts[], int *new_account, T_INTERFACE *interface, char *address);
 
 #endif
