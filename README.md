@@ -10,8 +10,7 @@ Network Gatekeeper gives nodes the ability to pay their neighbors in exchange fo
 
 Each message is an interaction between what we'll call a "client" and "server". A client wants access to the rest of the network through the server, and the server is willing to route the client's packets for a price.
 
-* -->request  This is the first message that the client will send to the server asking for a price for a certain network address
-* <--propose  The server responds with a proposed price and terms
+* <--propose  When the client sends the first packet to a new destination address, the server responds with a proposed price and terms
 * -->accept   The client will either accept this price and terms after which they will send payment, or
 * -->reject   The client may reject the request, offering a different price or terms. The server must respond with another propose
 
@@ -65,17 +64,16 @@ WARNING! You are responsible for your own bitcoin. Put only as much as the progr
 Then:
 
 1. Make sure that when ngp is not running on either host, the client is able to route its packets through the server.
-3. Make sure Electrum is running on both client and server, and that they are synced with the network.
-4. Edit net.conf on the client and make sure NGP_INTERFACE is the ip address of your server.
-5. Until it's made configurable, ngp assumes that the client and server communicate over the interface eth0. If that's not right for you, change it on line 30 of network_ipv4.c, and recompile.
-6. Change the IGNORE_INTERFACE in net.conf to the interface on the server for the default gatway that doesn't connect to another instance of ngp.
-7. Change the ACCOUNT_ID in net.conf on both client and server to the public bitcoin address that you would like to use to receive payment.
-8. Change the PAYMENT_INTERFACE in net.conf on both client and server to 2
-9. Set your electrum wallet password to "password"
-10. Run on server: sudo ./ngp start (add the flag -v if you want to see log messages printed to the command line)
-11. Run on client: sudo ./ngp start (add the flag -v if you want to see log messages printed to the command line)
-12. On the client, ping something or do something that will try to route data across your server. Notice that if you pinged something requiring a DNS request, it will take a few seconds to return, because the first message was actually blocked by the server before the grace period could be implemented.
-13. When you're finished, run on client: sudo ./ngp stop
-14. Run on server: sudo ./ngp stop
+2. Make sure Electrum is running on both client and server, and that they are synced with the network.
+3. Edit net.conf on the client and make sure NGP_INTERFACE is the ip address of your server.
+4. Change the IGNORE_INTERFACE in net.conf to the interface on the server for the default gatway that doesn't connect to another instance of ngp.
+5. Change the ACCOUNT_ID in net.conf on both client and server to the public bitcoin address that you would like to use to receive payment.
+6. Change the PAYMENT_INTERFACE in net.conf on both client and server to 2
+7. Set your electrum wallet password to "password"
+8. Run on server: sudo ./ngp start (add the flag -v if you want to see log messages printed to the command line)
+9. Run on client: sudo ./ngp start (add the flag -v if you want to see log messages printed to the command line)
+10. On the client, ping something or do something that will try to route data across your server. Notice that if you pinged something requiring a DNS request, it will take a few seconds to return, because the first message was actually blocked by the server before the grace period could be implemented.
+11. When you're finished, run on client: sudo ./ngp stop
+12. Run on server: sudo ./ngp stop
 
 

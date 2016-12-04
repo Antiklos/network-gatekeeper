@@ -1,5 +1,4 @@
-- Change the firewall to a blacklist rather than a whitelist, so there is no race condition for the first kb or so of data being blocked, and so the request message can be removed.
-- Make contract data size configurable
+- Make accounting system run smoothly so that renewals are handled and payments sent only when necessary
 - Refactor to remove all the unnecessary string manipulation
 - Refactor state array to make a linked list instead
 - Move the cli_socket and payment message to a unix socket instead of inet?

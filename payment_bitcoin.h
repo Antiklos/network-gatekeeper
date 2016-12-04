@@ -12,7 +12,7 @@ T_PAYMENT_INTERFACE payment_bitcoin_interface();
 
 int payment_bitcoin_init();
 
-void send_payment_bitcoin(struct interface_id_udp *interface, char *address, int64_t price);
+void send_payment_bitcoin(T_INTERFACE *interface, char *address, int64_t price);
 
 void payment_bitcoin_destroy(int pid_payment);
 

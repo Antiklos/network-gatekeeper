@@ -1,88 +1,87 @@
 #include <stdio.h>
+#include <sys/ioctl.h>
+#include <linux/if_packet.h>
 
 #include "link_udp.h"
 
 T_LINK_INTERFACE link_udp_interface() {
   T_LINK_INTERFACE interface;
   interface.link_init = &link_udp_init;
-  interface.link_find_interface = &link_find_interface_udp;
   interface.link_receive = &link_receive_udp;
   interface.link_send = &link_send_udp;
   interface.link_destroy = &link_udp_destroy;
   return interface;
 }
 
-struct interface_id_udp* link_find_interface_udp(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char *ip_addr_src, char *ip_addr_dst) {
-    struct interface_id_udp *current_interface = NULL;
-    int i;
-    for (i = 0; i < *new_connection; i++) {
-      if (interfaces[i].sockfd == sockfd || strcmp(interfaces[i].ip_addr_dst, ip_addr_dst) == 0) {
-        current_interface = &interfaces[i];
-      }
-    }
-    if (current_interface == NULL) {
-      if (ip_addr_dst == NULL || ip_addr_dst == "") {
-        printf("Must provide ip_addr for new interfaces\n");
-        return NULL;
-      }
-      current_interface = &interfaces[*new_connection];
-      *new_connection = *new_connection + 1;
-      if (ip_addr_src != NULL) {
-        strcpy(current_interface->ip_addr_src, ip_addr_src);
-      }
-      strcpy(current_interface->ip_addr_dst, ip_addr_dst);
-      current_interface->outgoing_port = LINK_UDP_DEFAULT_PORT;
-      current_interface->incoming_port = 0;
-      current_interface->sockfd = create_udp_socket(&current_interface->incoming_port);
-      if (current_interface->sockfd < 0) {
-        return NULL;
-      }
-      printf("Creating new interface for ip_addr %s outport %u inport %u and sockfd %i\n",
-        current_interface->ip_addr_dst, current_interface->outgoing_port, current_interface->incoming_port, current_interface->sockfd);
+void link_udp_init(T_INTERFACE interfaces[], int *new_connection, char *ignore_interface) {
+  struct ifaddrs *addrs, *tmpaddr;
+  getifaddrs(&addrs);
+  tmpaddr = addrs;
+
+  while (tmpaddr)
+  {
+    if (tmpaddr->ifa_addr != NULL && tmpaddr->ifa_addr->sa_family == AF_INET && strcmp(tmpaddr->ifa_name, "lo") != 0 && strcmp(tmpaddr->ifa_name, ignore_interface) != 0)
+    {
+        struct sockaddr_in *lAddr = (struct sockaddr_in *)tmpaddr->ifa_addr;
+        strcpy(interfaces[*new_connection].interface_id, tmpaddr->ifa_name);
+        strcpy(interfaces[*new_connection].net_addr_local, inet_ntoa(lAddr->sin_addr));
+        
+        struct sockaddr_in *netmask = (struct sockaddr_in *)tmpaddr->ifa_netmask;
+        unsigned long netmask_raw = netmask->sin_addr.s_addr;
+        unsigned long addr_dst = lAddr->sin_addr.s_addr | ~netmask_raw;
+        struct in_addr *addr_remote = (struct in_addr *)&addr_dst;
+        strcpy(interfaces[*new_connection].net_addr_remote, inet_ntoa(*addr_remote));
+        interfaces[*new_connection].broadcast = true;
+        interfaces[*new_connection].sockfd = create_udp_socket(interfaces[*new_connection].interface_id, false);
+
+        interfaces[*new_connection].scan_sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IP));
+        struct ifreq ifr;
+        memset(&ifr, 0, sizeof(ifr));
+        snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", interfaces[*new_connection].interface_id);
+        int result = ioctl(interfaces[*new_connection].scan_sockfd , SIOCGIFINDEX , &ifr);
+        struct sockaddr_ll addr;
+        memset(&addr, 0, sizeof(addr));
+        addr.sll_family = AF_PACKET;
+        addr.sll_ifindex = ifr.ifr_ifindex; 
+        addr.sll_protocol = htons(ETH_P_IP);
+        result = bind(interfaces[*new_connection].scan_sockfd,(struct sockaddr *) &addr, sizeof(addr));
+        *new_connection = *new_connection + 1;
     }
 
-    return current_interface;
+    tmpaddr = tmpaddr->ifa_next;
+  }
+
+  freeifaddrs(addrs);
 }
 
-void link_udp_init() {
-  printf("Executing link_test_init\n");
-}
-
-struct interface_id_udp* link_receive_udp(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char** message) {
-  printf("Received raw message: %s\n",*message);
+T_INTERFACE* link_receive_udp(T_INTERFACE *current_interface, char** message) {
   char *ip_addr = strsep(message," ");
-  if (ip_addr == NULL) {
-    printf("No ip_addr provided.\n");
+  if (strcmp(ip_addr,current_interface->net_addr_local) == 0) {
     return NULL;
   }
-  char *port = strsep(message," ");
-  if (port == NULL) {
-    printf("No port provided.\n");
-    return NULL;
-  }
-  struct interface_id_udp *current_interface = link_find_interface_udp(interfaces, new_connection, sockfd, NULL, ip_addr);
-  current_interface->outgoing_port = (unsigned int)strtol(port,NULL,10);
+  printf("Received raw message: %s %s\n",ip_addr,*message);
+  strcpy(current_interface->net_addr_remote, ip_addr);
   return current_interface;
 }
 
-void link_send_udp(struct interface_id_udp *interface_id, char *message) {
+void link_send_udp(T_INTERFACE *interface, char *message) {
   char buffer[CHAR_BUFFER_LEN];
-  strcpy(buffer, interface_id->ip_addr_src);
-  char port[8];
-  sprintf(port, " %u ", interface_id->incoming_port);
-  strcat(buffer, port);
-  strcat(buffer, message);
+  sprintf(buffer, "%s %s", interface->net_addr_local, message);
   message = buffer;
 
   printf("About to send raw message: %s\n",message);
   struct sockaddr_in serv_addr;
   int sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (interface->broadcast) {
+    int optval = 1;
+    setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval));
+  }
   serv_addr.sin_family = AF_INET;
-  serv_addr.sin_port = htons(interface_id->outgoing_port);
-  inet_aton(interface_id->ip_addr_dst, &serv_addr.sin_addr);
+  serv_addr.sin_port = htons(LINK_UDP_DEFAULT_PORT);
+  inet_aton(interface->net_addr_remote, &serv_addr.sin_addr);
   int result = sendto(sockfd, message, strlen(message), 0, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
   if (result < 0) {
-    printf("send_request_udp failed\n");
+    printf("send_request_udp failed with errno %i\n", errno);
   }
 }
 

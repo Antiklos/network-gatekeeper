@@ -10,12 +10,14 @@
 
 T_NETWORK_INTERFACE network_ipv4_interface();
 
-pid_t network_ipv4_init(T_STATE states[], int *new_connection, char *ignore_interface);
+void network_ipv4_init();
 
-int sniff_datagram_ipv4(char *buffer, char *src_addr, char *dst_addr, char *next_hop, char *ngp_interface, unsigned int *packet_size);
+int sniff_datagram_ipv4(char *buffer, char *dst_address, unsigned int *packet_size);
 
-void gate_interface_ipv4(char *src_addr, char *dst_addr, time_t time_expiration, long int bytes);
+void gate_interface_ipv4(char *interface_id, char *address);
 
-void network_ipv4_destroy(pid_t net_pid);
+void gate_address_ipv4(char *interface_id, char *dst_addr, time_t time_expiration, long int bytes);
+
+void network_ipv4_destroy();
 
 #endif

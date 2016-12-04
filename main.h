@@ -8,11 +8,10 @@
 #define PAYMENT_INTERFACES_NUMBER 3
 
 #define DEFAULT 0
-#define REQUEST 1
-#define PROPOSE 2
-#define ACCEPT 3
-#define REJECT 4
-#define BEGIN 5
+#define PROPOSE 1
+#define ACCEPT 2
+#define REJECT 3
+#define BEGIN 4
 
 //These arrays need to be allocated on the heap as linked lists
 #define MAX_CONNECTIONS 4
@@ -51,17 +50,17 @@ typedef struct S_ACCOUNT {
   int64_t balance;
 } T_ACCOUNT;
 
-struct interface_id_udp {
-  char interface[MAX_INTERFACE_LEN];
-  char ip_addr_src[16];
-  char ip_addr_dst[16];
-  unsigned int incoming_port;
-  unsigned int outgoing_port;
+typedef struct S_INTERFACE {
+  char interface_id[IFNAMSIZ];
+  char net_addr_local[16];
+  char net_addr_remote[16];
+  bool broadcast;
   int sockfd;
-};
+  int scan_sockfd;
+} T_INTERFACE;
 
 typedef struct S_STATE {
-  struct interface_id_udp *interface_id;
+  T_INTERFACE *interface;
   int sock_in;
   int sock_out;
   int status;
@@ -76,7 +75,6 @@ typedef struct S_CONFIG {
   int link_interface;
   int network_interface;
   int payment_interface;
-  char ngp_interface[MAX_INTERFACE_LEN];
   char account_id[35];
   int64_t default_price;
   int64_t grace_period_price;
@@ -89,31 +87,31 @@ typedef struct S_CONFIG {
 
 typedef struct S_LINK_INTERFACE {
   int identifier;
-  void (*link_init)();
-  struct interface_id_udp* (*link_find_interface)(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char *ip_addr_src, char *ip_addr_dst);
-  struct interface_id_udp* (*link_receive)(struct interface_id_udp interfaces[], int *new_connection, int sockfd, char** message);
-  void (*link_send)(struct interface_id_udp *interface_id, char *message);
+  void (*link_init)(T_INTERFACE interfaces[], int *new_connection, char *ignore_interface);
+  T_INTERFACE* (*link_receive)(T_INTERFACE *current_interface, char** message);
+  void (*link_send)(T_INTERFACE *interface_id, char *message);
   void (*link_destroy)();
 } T_LINK_INTERFACE;
 
 typedef struct S_NETWORK_INTERFACE {
   int identifier;
-  pid_t (*network_init)(T_STATE states[], int *new_connection, char *ignore_interface);
-  int (*sniff_datagram)(char *buffer, char *src_addr, char *dst_addr, char *next_hop, char *ngp_interface, unsigned int *packet_size);
-  void (*gate_interface)(char *src_addr, char *dst_addr, time_t time_expiration, long int bytes);
-  void (*network_destroy)(pid_t net_pid);
+  void (*network_init)();
+  int (*sniff_datagram)(char *buffer, char *dst_address, unsigned int *packet_size);
+  void (*gate_interface)(char *interface_id, char *address);
+  void (*gate_address)(char *interface_id, char *dst_addr, time_t time_expiration, long int bytes);
+  void (*network_destroy)();
 } T_NETWORK_INTERFACE;
 
 typedef struct S_PAYMENT_INTERFACE {
   int identifier;
   int (*payment_init)();
-  void (*send_payment)(struct interface_id_udp *interface, char *address, int64_t price);
+  void (*send_payment)(T_INTERFACE *interface, char *address, int64_t price);
   void (*payment_destroy)(int pid_payment);
 } T_PAYMENT_INTERFACE;
 
 static T_CONFIG read_config();
-
-static T_STATE* find_state(T_STATE states[], int *new_contract, T_ACCOUNT accounts[], int *new_account, struct interface_id_udp *interface_id, char *address);
+int create_udp_socket(char *interface_id, bool cli);
+static T_STATE* find_state(T_STATE states[], int *new_contract, T_ACCOUNT accounts[], int *new_account, T_INTERFACE *interface, char *address);
 
 #endif
 
