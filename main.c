@@ -104,17 +104,6 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     char *current_message = buffer;
     if (argument == NULL) {
       printf("No message sent to receive.\n");
-    } else if (strcmp(argument,"request") == 0) {
-      if (current_state->status != DEFAULT && current_state->status != BEGIN) {
-    printf("Cannot process request. Contract already in progress.\n");
-      } else {
-    evaluate_request(current_state, config);
-    current_state->status = PROPOSE;
-    char *account_id = strsep(&message," ");
-    strcpy(current_state->account->account_id, account_id);
-    sprintf(current_message, "%s propose %lli %u %s", current_state->address, (long long int)current_state->price, (unsigned int)current_state->time_expiration, config->account_id);
-    link_interface.link_send(current_state->interface, current_message);
-      }
     } else if (strcmp(argument,"propose") == 0) {
       char *price_arg = strsep(&message," ");
       char *time_expiration = strsep(&message," ");
@@ -123,7 +112,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     printf("Price not provided for propose.\n");
       } else if (time_expiration == NULL) {
     printf("Time expiration not provided for propose.\n");
-      } else if (current_state->status != DEFAULT && current_state->status != REQUEST && current_state->status != REJECT) {
+      } else if (current_state->status != DEFAULT && current_state->status != REJECT) {
     printf("Not ready to receive propose.\n");
       } else {
     current_state->price = (int64_t)strtol(price_arg,NULL,10);

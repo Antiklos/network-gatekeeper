@@ -8,11 +8,10 @@
 #define PAYMENT_INTERFACES_NUMBER 3
 
 #define DEFAULT 0
-#define REQUEST 1
-#define PROPOSE 2
-#define ACCEPT 3
-#define REJECT 4
-#define BEGIN 5
+#define PROPOSE 1
+#define ACCEPT 2
+#define REJECT 3
+#define BEGIN 4
 
 //These arrays need to be allocated on the heap as linked lists
 #define MAX_CONNECTIONS 4

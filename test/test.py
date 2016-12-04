@@ -41,8 +41,6 @@ ncmd(n1,["sudo","./ngp","stop"])
 
 ncmd(n1,["ping", "-c", "15", "10.0.2.10"])
 
-ncmd(router,["sudo","iptables","-L","-v"])
-
 ncmd(router,["sudo","./ngp","stop"])
 
 ncmd(router,["sudo","cat","/var/log/network_gatekeeper.log"])

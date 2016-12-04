@@ -10,8 +10,7 @@ Network Gatekeeper gives nodes the ability to pay their neighbors in exchange fo
 
 Each message is an interaction between what we'll call a "client" and "server". A client wants access to the rest of the network through the server, and the server is willing to route the client's packets for a price.
 
-* -->request  This is the first message that the client will send to the server asking for a price for a certain network address
-* <--propose  The server responds with a proposed price and terms
+* <--propose  When the client sends the first packet to a new destination address, the server responds with a proposed price and terms
 * -->accept   The client will either accept this price and terms after which they will send payment, or
 * -->reject   The client may reject the request, offering a different price or terms. The server must respond with another propose
 
