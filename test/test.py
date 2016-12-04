@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+#Expected behavior: only the first 14 packets of the ping should be allowed through
+
 import time
 import sys
 import shutil
@@ -30,20 +32,20 @@ router.nodefilecopy("net.conf","../net.conf")
 n1.nodefilecopy("ngp","../ngp")
 n1.nodefilecopy("net.conf","../net.conf")
 
-time.sleep(1)
 ncmd(router,["sudo","./ngp","start"])
 ncmd(n1,["sudo","./ngp","start"])
 
-time.sleep(1)
-ncmd(n1,["ping", "-c", "5", "10.0.2.10"])
+ncmd(n1,["ping", "-c", "3", "10.0.2.10"])
 
-time.sleep(1)
 ncmd(n1,["sudo","./ngp","stop"])
+
+ncmd(n1,["ping", "-c", "15", "10.0.2.10"])
+
+ncmd(router,["sudo","iptables","-L","-v"])
+
 ncmd(router,["sudo","./ngp","stop"])
 
-time.sleep(1)
 ncmd(router,["sudo","cat","/var/log/network_gatekeeper.log"])
 ncmd(n1,["sudo","cat","/var/log/network_gatekeeper.log"])
 
-time.sleep(1)
 session.shutdown()

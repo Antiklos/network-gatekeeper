@@ -96,10 +96,11 @@ typedef struct S_LINK_INTERFACE {
 
 typedef struct S_NETWORK_INTERFACE {
   int identifier;
-  pid_t (*network_init)(T_STATE states[], int *new_connection, char *ignore_interface);
+  void (*network_init)();
   int (*sniff_datagram)(char *buffer, char *dst_address, unsigned int *packet_size);
-  void (*gate_interface)(char *src_addr, char *dst_addr, time_t time_expiration, long int bytes);
-  void (*network_destroy)(pid_t net_pid);
+  void (*gate_interface)(char *interface_id, char *address);
+  void (*gate_address)(char *interface_id, char *dst_addr, time_t time_expiration, long int bytes);
+  void (*network_destroy)();
 } T_NETWORK_INTERFACE;
 
 typedef struct S_PAYMENT_INTERFACE {

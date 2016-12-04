@@ -153,7 +153,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
         printf("Not ready to receive accept.\n");
       } else {
           long int grace_period_data = config->grace_period_price / current_state->price;
-          network_interface.gate_interface(current_state->interface->net_addr_remote, current_state->address, time(NULL) + config->contract_time, grace_period_data);
+          network_interface.gate_address(current_state->interface->interface_id, current_state->address, time(NULL) + config->contract_time, grace_period_data);
           current_state->account->balance -= config->grace_period_price;
           current_state->status = BEGIN;
       }
@@ -182,7 +182,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     printf("Not ready to receive payment.\n");
       } else {
       current_state->account->balance += (int64_t)strtol(price_arg,NULL,10);
-      network_interface.gate_interface(current_state->interface->net_addr_remote, current_state->address, current_state->time_expiration, CONTRACT_DATA_SIZE);
+      network_interface.gate_address(current_state->interface->interface_id, current_state->address, current_state->time_expiration, CONTRACT_DATA_SIZE);
       }
     } else {
       printf("Invalid message type.\n");
@@ -319,12 +319,9 @@ int start(bool verbose)
   unsigned int i;
   int status;
 
-  char *ignore_interface = config.ignore_interface;
   link_interface.link_init(interfaces, &new_connection, config.ignore_interface);
-  pid_t net_pid = network_interface.network_init(states, &new_contract, ignore_interface);
   pid_t payment_pid = payment_interface.payment_init();
 
-  //int scan_sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
   char buffer[PACKET_BUFFER_SIZE];
   int data_size;
 
@@ -371,18 +368,19 @@ int start(bool verbose)
           T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, dst_address);
           current_state->bytes_sent += packet_size;
 
-          if (current_state->status == DEFAULT || 
-               (current_state->status == ACCEPT && 
-                 (current_state->time_expiration - time(NULL) < config.time_renewal) || 
-                 (current_state->bytes_sent + config.data_renewal > config.contract_data * 1024)
-               )
-             ) 
+          if (current_state->status == DEFAULT)
           {
+            network_interface.gate_interface(current_interface->interface_id, current_state->address);
+            network_interface.gate_address(current_interface->interface_id, current_state->address, time(NULL) + 200, 100);
             evaluate_request(current_state, &config);
             current_state->status = PROPOSE;
             char message[CHAR_BUFFER_LEN];
             sprintf(message, "%s propose %lli %u %s", current_state->address, (long long int)current_state->price, (unsigned int)current_state->time_expiration, config.account_id);
             link_interface.link_send(current_state->interface, message);
+          }
+
+          if (current_state->status == BEGIN && (current_state->bytes_sent > config.contract_data * 1024)) {
+            network_interface.gate_interface(current_interface->interface_id, current_state->address);
           }
         }
         break;
@@ -429,7 +427,7 @@ int start(bool verbose)
     close(interfaces[i].scan_sockfd);
   }
   close(cli_sockfd);
-  network_interface.network_destroy(net_pid);
+  network_interface.network_destroy();
   payment_interface.payment_destroy(payment_pid);
   fflush(stdout);
   exit(EXIT_SUCCESS);
