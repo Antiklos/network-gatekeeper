@@ -76,7 +76,6 @@ typedef struct S_CONFIG {
   int link_interface;
   int network_interface;
   int payment_interface;
-  char ngp_interface[MAX_INTERFACE_LEN];
   char account_id[35];
   int64_t default_price;
   int64_t grace_period_price;
@@ -89,7 +88,7 @@ typedef struct S_CONFIG {
 
 typedef struct S_LINK_INTERFACE {
   int identifier;
-  void (*link_init)(T_INTERFACE interfaces[], int *new_connection);
+  void (*link_init)(T_INTERFACE interfaces[], int *new_connection, char *ignore_interface);
   T_INTERFACE* (*link_receive)(T_INTERFACE *current_interface, char** message);
   void (*link_send)(T_INTERFACE *interface_id, char *message);
   void (*link_destroy)();

@@ -10,7 +10,7 @@
 
 T_LINK_INTERFACE link_udp_interface();
 
-void link_udp_init(T_INTERFACE interfaces[], int *new_connection);
+void link_udp_init(T_INTERFACE interfaces[], int *new_connection, char *ignore_interface);
 
 T_INTERFACE* link_receive_udp(T_INTERFACE *current_interface, char** message);
 

@@ -41,10 +41,6 @@ static T_CONFIG read_config()
 
   fscanf(file,"%s\n",buffer);
   strsep(&buffer,"=");
-  strcpy(config.ngp_interface,buffer);
-
-  fscanf(file,"%s\n",buffer);
-  strsep(&buffer,"=");
   strcpy(config.account_id,buffer);
 
   fscanf(file,"%s\n",buffer);
@@ -127,7 +123,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     printf("Price not provided for propose.\n");
       } else if (time_expiration == NULL) {
     printf("Time expiration not provided for propose.\n");
-      } else if (current_state->status != REQUEST && current_state->status != REJECT) {
+      } else if (current_state->status != DEFAULT && current_state->status != REQUEST && current_state->status != REJECT) {
     printf("Not ready to receive propose.\n");
       } else {
     current_state->price = (int64_t)strtol(price_arg,NULL,10);
@@ -229,7 +225,7 @@ static T_STATE* find_state(T_STATE states[], int *new_contract, T_ACCOUNT accoun
     } else {
       current_state->account = current_account;
     }
-    printf("Creating new state for identifier %s and address %s\n",interface->net_addr_remote, address);
+    printf("Creating new state for identifier %s and address %s\n",interface->interface_id, address);
   }
 
   return current_state;
@@ -319,34 +315,28 @@ int start(bool verbose)
   int new_connection = 0;
   int new_account = 0;
   int command_result = 0;
-  fd_set readfds;
-  int maxfd, fd;
+
   unsigned int i;
   int status;
-  struct sockaddr_in sock_addr;
-  socklen_t sock_len = sizeof(sock_addr);
 
   char *ignore_interface = config.ignore_interface;
-  link_interface.link_init(interfaces, &new_connection);
+  link_interface.link_init(interfaces, &new_connection, config.ignore_interface);
   pid_t net_pid = network_interface.network_init(states, &new_contract, ignore_interface);
   pid_t payment_pid = payment_interface.payment_init();
 
-  int saddr_size, data_size;
-  struct sockaddr saddr;
-  int scan_sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
-  if(scan_sockfd < 0)
-  {
-    printf("Error creating socket for sniffing packets\n");
-    return 1;
-  }
+  //int scan_sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
   char buffer[PACKET_BUFFER_SIZE];
+  int data_size;
+
+  struct sockaddr saddr;
+  int saddr_size = sizeof(saddr);
 
   while(command_result > -1) {
     bzero(buffer,PACKET_BUFFER_SIZE);
     data_size = 0;
 
-    for (i = 0; i < new_connection + 3; i++) {
-      data_size = recvfrom(interfaces[i].sockfd , buffer , PACKET_BUFFER_SIZE , MSG_DONTWAIT , &saddr , (socklen_t*)&saddr_size);
+    for (i = 0; i < new_connection; i++) {
+      data_size = recvfrom(interfaces[i].sockfd , buffer , PACKET_BUFFER_SIZE , MSG_DONTWAIT , (struct sockaddr *) &saddr , (socklen_t *)&saddr_size);
       if (data_size > 0) {
         char *message = buffer;
         T_INTERFACE *current_interface = link_interface.link_receive(&interfaces[i], &message);
@@ -370,8 +360,8 @@ int start(bool verbose)
       }
     }
 
-    for (i = 0; i < new_connection + 3; i++) {
-      data_size = recvfrom(interfaces[i].scan_sockfd , buffer , PACKET_BUFFER_SIZE , MSG_DONTWAIT , &saddr , (socklen_t*)&saddr_size);
+    for (i = 0; i < new_connection; i++) {
+      data_size = recvfrom(interfaces[i].scan_sockfd , buffer , PACKET_BUFFER_SIZE , MSG_DONTWAIT ,(struct sockaddr *) &saddr , (socklen_t*)&saddr_size);
       if (data_size > 0) {
         char dst_address[CHAR_BUFFER_LEN];
         unsigned int packet_size;

@@ -13,11 +13,11 @@ T_NETWORK_INTERFACE network_ipv4_interface() {
 }
 
 pid_t network_ipv4_init(T_STATE states[], int *new_connection, char *ignore_interface) {
-  system("iptables -P FORWARD DROP");
+  //system("iptables -P FORWARD DROP");
 
-  char command[IFNAMSIZ + 64];
-  sprintf(command, "iptables -I FORWARD -i %s -j ACCEPT",ignore_interface);
-  system(command);
+  //char command[IFNAMSIZ + 64];
+  //sprintf(command, "iptables -I FORWARD -i %s -j ACCEPT",ignore_interface);
+  //system(command);
 }
 
 static int get_local_ip_addr(char *address) {
@@ -194,13 +194,18 @@ static int route_lookup(char *address, char *next_hop) {
 
 int sniff_datagram_ipv4(char *buffer, char *dst_address, unsigned int *packet_size) {
   struct iphdr *iph = (struct iphdr*)(buffer + sizeof(struct ethhdr));
-  struct sockaddr_in dst_addr;
+  struct sockaddr_in dst_addr, src_addr;
 
-  memset(&dst_addr, 0, sizeof(dst_addr));
+  memset(&dst_addr, 0, sizeof(struct sockaddr_in));
   dst_addr.sin_addr.s_addr = iph->daddr;
 
-  strcpy(dst_address, inet_ntoa(dst_addr.sin_addr));
 
+  memset(&src_addr, 0, sizeof(struct sockaddr_in));
+  src_addr.sin_addr.s_addr = iph->saddr;
+
+  strcpy(dst_address, inet_ntoa(dst_addr.sin_addr));
+printf("Detected packet from %s",inet_ntoa(src_addr.sin_addr));
+printf(" to %s\n",inet_ntoa(dst_addr.sin_addr));
   *packet_size = iph->tot_len >> 8;
   return 1;
 }
@@ -218,7 +223,7 @@ void gate_interface_ipv4(char *src_addr, char *dst_addr, time_t time_expiration,
 
 void network_ipv4_destroy(pid_t net_pid) {
   system("iptables -F");
-  system("iptables -P FORWARD ACCEPT");
+  //system("iptables -P FORWARD ACCEPT");
 }
 
 
