@@ -60,6 +60,7 @@ T_INTERFACE* link_receive_udp(T_INTERFACE *current_interface, char** message) {
     return NULL;
   }
   printf("Received raw message: %s %s\n",ip_addr,*message);
+  current_interface->broadcast = 0;
   strcpy(current_interface->net_addr_remote, ip_addr);
   return current_interface;
 }

@@ -112,7 +112,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     printf("Price not provided for propose.\n");
       } else if (time_expiration == NULL) {
     printf("Time expiration not provided for propose.\n");
-      } else if (current_state->status != DEFAULT && current_state->status != REJECT) {
+      } else if (current_state->status != DEFAULT && current_state->status != REJECT && current_state->status != ACCEPT) {
     printf("Not ready to receive propose.\n");
       } else {
     current_state->price = (int64_t)strtol(price_arg,NULL,10);
@@ -123,13 +123,13 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       strcpy(current_message, current_state->address);
       strcat(current_message, " accept");
       link_interface.link_send(current_state->interface, current_message);
-      current_state->account->balance -= current_state->price;
+      current_state->account->balance += current_state->price;
 
-      if (current_state->account->balance < 0) {
+      if (current_state->account->balance > 0) {
         int64_t payment = MAX_PAYMENT;
         payment_interface.send_payment(current_state->interface, current_state->account->account_id, payment);
         current_state->bytes_sent = 0;
-        current_state->account->balance += payment;
+        current_state->account->balance -= payment;
       }
     } else {
       current_state->status = REJECT;
@@ -142,7 +142,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
         printf("Not ready to receive accept.\n");
       } else {
           long int grace_period_data = config->grace_period_price / current_state->price;
-          network_interface.gate_address(current_state->interface->interface_id, current_state->address, time(NULL) + config->contract_time, grace_period_data);
+          network_interface.gate_address(current_state->interface->interface_id, current_state->address, time(NULL) + config->contract_time);
           current_state->account->balance -= config->grace_period_price;
           current_state->status = BEGIN;
       }
@@ -171,7 +171,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     printf("Not ready to receive payment.\n");
       } else {
       current_state->account->balance += (int64_t)strtol(price_arg,NULL,10);
-      network_interface.gate_address(current_state->interface->interface_id, current_state->address, current_state->time_expiration, CONTRACT_DATA_SIZE);
+      network_interface.gate_address(current_state->interface->interface_id, current_state->address, current_state->time_expiration);
       }
     } else {
       printf("Invalid message type.\n");
@@ -351,16 +351,20 @@ int start(bool verbose)
       if (data_size > 0) {
         char dst_address[CHAR_BUFFER_LEN];
         unsigned int packet_size;
-         
-        if (network_interface.sniff_datagram(buffer, dst_address, &packet_size) == 1) {
-          T_INTERFACE *current_interface = &interfaces[i];
+        
+        T_INTERFACE *current_interface = &interfaces[i];
+        if (network_interface.sniff_datagram(buffer, current_interface->net_addr_local, dst_address, &packet_size) == 1) {
+          if (strcmp(current_interface->net_addr_remote, dst_address) == 0) {
+            printf("Ignoring broadcast\n");
+            break;
+          }
           T_STATE *current_state = find_state(states, &new_contract, accounts, &new_account, current_interface, dst_address);
           current_state->bytes_sent += packet_size;
 
           if (current_state->status == DEFAULT)
           {
             network_interface.gate_interface(current_interface->interface_id, current_state->address);
-            network_interface.gate_address(current_interface->interface_id, current_state->address, time(NULL) + 200, 100);
+            network_interface.gate_address(current_interface->interface_id, current_state->address, time(NULL) + 1);
             evaluate_request(current_state, &config);
             current_state->status = PROPOSE;
             char message[CHAR_BUFFER_LEN];
@@ -370,6 +374,12 @@ int start(bool verbose)
 
           if (current_state->status == BEGIN && (current_state->bytes_sent > config.contract_data * 1024)) {
             network_interface.gate_interface(current_interface->interface_id, current_state->address);
+            evaluate_request(current_state, &config);
+            current_state->bytes_sent = 0;
+            current_state->status = PROPOSE;
+            char message[CHAR_BUFFER_LEN];
+            sprintf(message, "%s propose %lli %u %s", current_state->address, (long long int)current_state->price, (unsigned int)current_state->time_expiration, config.account_id);
+            link_interface.link_send(current_state->interface, message);
           }
         }
         break;
