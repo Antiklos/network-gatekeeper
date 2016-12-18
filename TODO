@@ -1,7 +1,7 @@
-- Make accounting system run smoothly so that renewals are handled and payments sent only when necessary
 - Refactor to remove all the unnecessary string manipulation
 - Refactor state array to make a linked list instead
 - Move the cli_socket and payment message to a unix socket instead of inet?
 - Smarter default client behavior for polling all interfaces and choosing the best deal
+- Make contract data limit configurable
 - Implement or interface with a reputation system to prevent abuse
 - GUI for config

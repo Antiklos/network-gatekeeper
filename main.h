@@ -77,7 +77,6 @@ typedef struct S_CONFIG {
   int payment_interface;
   char account_id[35];
   int64_t default_price;
-  int64_t grace_period_price;
   int contract_data;
   int contract_time;
   int data_renewal;
@@ -96,9 +95,9 @@ typedef struct S_LINK_INTERFACE {
 typedef struct S_NETWORK_INTERFACE {
   int identifier;
   void (*network_init)();
-  int (*sniff_datagram)(char *buffer, char *dst_address, unsigned int *packet_size);
+  int (*sniff_datagram)(char *buffer, char *local_address, char *dst_address, unsigned int *packet_size);
   void (*gate_interface)(char *interface_id, char *address);
-  void (*gate_address)(char *interface_id, char *dst_addr, time_t time_expiration, long int bytes);
+  void (*gate_address)(char *interface_id, char *dst_addr, time_t time_expiration);
   void (*network_destroy)();
 } T_NETWORK_INTERFACE;
 

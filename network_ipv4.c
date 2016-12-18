@@ -17,15 +17,19 @@ void network_ipv4_init() {
 
 }
 
-int sniff_datagram_ipv4(char *buffer, char *dst_address, unsigned int *packet_size) {
+int sniff_datagram_ipv4(char *buffer, char *local_address, char *dst_address, unsigned int *packet_size) {
   struct iphdr *iph = (struct iphdr*)(buffer + sizeof(struct ethhdr));
   struct sockaddr_in dst_addr, src_addr;
 
-  memset(&dst_addr, 0, sizeof(struct sockaddr_in));
-  dst_addr.sin_addr.s_addr = iph->daddr;
-
   memset(&src_addr, 0, sizeof(struct sockaddr_in));
   src_addr.sin_addr.s_addr = iph->saddr;
+
+  if (strcmp(inet_ntoa(src_addr.sin_addr),local_address) == 0) {
+    return 0;
+  }
+
+  memset(&dst_addr, 0, sizeof(struct sockaddr_in));
+  dst_addr.sin_addr.s_addr = iph->daddr;
 
   strcpy(dst_address, inet_ntoa(dst_addr.sin_addr));
   *packet_size = iph->tot_len >> 8;
@@ -38,7 +42,7 @@ void gate_interface_ipv4(char *interface_id, char *address) {
   system(output);
 }
 
-void gate_address_ipv4(char *interface_id, char *dst_addr, time_t time_expiration, long int kb) {
+void gate_address_ipv4(char *interface_id, char *dst_addr, time_t time_expiration) {
   char time_string[CHAR_BUFFER_LEN];
   struct tm* tm_info = gmtime(&time_expiration);
   strftime(time_string, 26, "%Y-%m-%dT%H:%M:%S", tm_info);
