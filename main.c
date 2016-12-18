@@ -49,10 +49,6 @@ static T_CONFIG read_config()
 
   fscanf(file,"%s\n",buffer);
   strsep(&buffer,"=");
-  config.grace_period_price = (int64_t)strtol(buffer,NULL,10);
-
-  fscanf(file,"%s\n",buffer);
-  strsep(&buffer,"=");
   config.contract_data = (int)strtol(buffer,NULL,10);
 
   fscanf(file,"%s\n",buffer);
@@ -141,9 +137,8 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       if (current_state->status != PROPOSE) {
         printf("Not ready to receive accept.\n");
       } else {
-          long int grace_period_data = config->grace_period_price / current_state->price;
-          network_interface.gate_address(current_state->interface->interface_id, current_state->address, time(NULL) + config->contract_time);
-          current_state->account->balance -= config->grace_period_price;
+          network_interface.gate_address(current_state->interface->interface_id, current_state->address, current_state->time_expiration);
+          current_state->account->balance -= current_state->price * config->contract_data;
           current_state->status = BEGIN;
       }
     } else if (strcmp(argument,"reject") == 0) {
@@ -171,7 +166,6 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
     printf("Not ready to receive payment.\n");
       } else {
       current_state->account->balance += (int64_t)strtol(price_arg,NULL,10);
-      network_interface.gate_address(current_state->interface->interface_id, current_state->address, current_state->time_expiration);
       }
     } else {
       printf("Invalid message type.\n");

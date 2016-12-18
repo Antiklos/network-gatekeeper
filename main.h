@@ -77,7 +77,6 @@ typedef struct S_CONFIG {
   int payment_interface;
   char account_id[35];
   int64_t default_price;
-  int64_t grace_period_price;
   int contract_data;
   int contract_time;
   int data_renewal;
