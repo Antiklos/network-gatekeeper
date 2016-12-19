@@ -57,6 +57,10 @@ static T_CONFIG read_config()
 
   fscanf(file,"%s\n",buffer);
   strsep(&buffer,"=");
+  config.payment_amount = (int64_t)strtol(buffer,NULL,10);
+
+  fscanf(file,"%s\n",buffer);
+  strsep(&buffer,"=");
   config.data_renewal = (int)strtol(buffer,NULL,10);
 
   fscanf(file,"%s\n",buffer);
@@ -68,30 +72,6 @@ static T_CONFIG read_config()
   strcpy(config.ignore_interface,buffer);
 
   return config;
-}
-
-int create_udp_socket(char *interface_id, bool cli) {
-  struct sockaddr_in serv_in_addr;
-  int sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-  if (sockfd < 0) { 
-    printf("ERROR opening socket\n");
-  }
-  serv_in_addr.sin_family = AF_INET;
-  serv_in_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  socklen_t sock_len = sizeof(serv_in_addr);
-  if (cli) {
-    serv_in_addr.sin_port = htons(UNIX_UDP_PORT);
-  } else {
-    serv_in_addr.sin_port = htons(LINK_UDP_DEFAULT_PORT);
-    setsockopt(sockfd, SOL_SOCKET, SO_BINDTODEVICE, interface_id, strlen(interface_id) + 1 );
-  }
-  int result = bind(sockfd, (struct sockaddr *) &serv_in_addr, sock_len);
-  if (result < 0) {
-    printf("Binding error %i getting INET socket. Are you running as root?\n",result);
-    return -1;
-  }
-  printf("Created udp socket for port %u and sockfd %i\n",ntohs(serv_in_addr.sin_port),sockfd);
-  return sockfd;
 }
 
 int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_interface, T_PAYMENT_INTERFACE payment_interface, T_NETWORK_INTERFACE network_interface, T_CONFIG *config) {
@@ -122,7 +102,7 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       current_state->account->balance += current_state->price;
 
       if (current_state->account->balance > 0) {
-        int64_t payment = MAX_PAYMENT;
+        int64_t payment = config->payment_amount;
         payment_interface.send_payment(current_state->interface, current_state->account->account_id, payment);
         current_state->bytes_sent = 0;
         current_state->account->balance -= payment;
@@ -151,12 +131,13 @@ int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_i
       } else if (current_state->status != PROPOSE) {
     printf("Not ready to receive reject.");
       } else {
-    current_state->price = (int64_t)strtol(price_arg,NULL,10);
-    current_state->time_expiration = (time_t)strtol(time_expiration,NULL,10);
-    evaluate_request(current_state, config);
-    sprintf(current_message, "%s propose %lli %u %s", current_state->address, (long long int)current_state->price, (unsigned int)current_state->time_expiration, config->account_id);
-    link_interface.link_send(current_state->interface, current_message);
-    current_state->status = PROPOSE;
+        current_state->price = (int64_t)strtol(price_arg,NULL,10);
+        current_state->time_expiration = (time_t)strtol(time_expiration,NULL,10);
+        if (evaluate_request(current_state, config)) {
+          sprintf(current_message, "%s propose %lli %u %s", current_state->address, (long long int)current_state->price, (unsigned int)current_state->time_expiration, config->account_id);
+          link_interface.link_send(current_state->interface, current_message);
+          current_state->status = PROPOSE;
+        }
       }
     } else if (strcmp(argument,"payment") == 0) {
       char *price_arg = strsep(&message," ");
@@ -282,13 +263,18 @@ int start(bool verbose)
     setbuf(stdout, NULL);
   }
 
-  int cli_sockfd;
-  socklen_t clilen;
   int result, n;
 
   //Set up socket for CLI communication
-  int unix_udp_port = UNIX_UDP_PORT;
-  cli_sockfd = create_udp_socket(NULL, true);
+  int cli_sockfd;
+  struct sockaddr_un addr_local, addr_remote;
+  cli_sockfd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
+  addr_local.sun_family = AF_UNIX; 
+  strcpy(addr_local.sun_path, SOCK_PATH);
+  unlink(addr_local.sun_path);
+  int len = strlen(addr_local.sun_path) + sizeof(addr_local.sun_family);
+  result = bind(cli_sockfd, (struct sockaddr *)&addr_local, len);
+  result = listen(cli_sockfd, 5);
 
   //Set up loop for events
   T_STATE states[MAX_CONTRACTS];
@@ -323,7 +309,7 @@ int start(bool verbose)
         if (current_interface != NULL) {
           char *address = strsep(&message," ");
 
-          if (strcmp(address,"payment") == 0) {
+          if (config.payment_interface == PAYMENT_INTERFACE_SIMULATE_IDENTIFIER && strcmp(address,"payment") == 0) {
             char payment_message[256];
             sprintf(payment_message, "payment %s", message);
             send_cli_message(payment_message);
@@ -380,7 +366,9 @@ int start(bool verbose)
       }
     }
 
-    data_size = recvfrom(cli_sockfd , buffer , PACKET_BUFFER_SIZE , MSG_DONTWAIT , &saddr , (socklen_t*)&saddr_size);
+    int addr_size = sizeof(addr_remote);
+    int cli_clientfd = accept(cli_sockfd, (struct sockaddr *)&addr_remote, &addr_size);
+    data_size = recvfrom(cli_clientfd , buffer , PACKET_BUFFER_SIZE , MSG_DONTWAIT , (struct sockaddr *)&addr_remote , (socklen_t*)&addr_size);
     if (data_size > 0) {
       char *message = buffer;
       char *argument = strsep(&message," ");
@@ -405,7 +393,7 @@ int start(bool verbose)
         }
       }
       else {
-        printf("Invalid command sent to server.\n");
+        printf("Invalid command sent to server: %s %s\n", argument, message);
       }
     }
 
@@ -429,16 +417,13 @@ int start(bool verbose)
 
 int send_cli_message(char *message)
 {
-  struct sockaddr_in serv_addr;
-  int sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-  serv_addr.sin_family = AF_INET;
-  serv_addr.sin_port = htons(UNIX_UDP_PORT);
-  inet_aton("127.0.0.1", &serv_addr.sin_addr);
-  int result = sendto(sockfd, message, strlen(message), 0, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
-  if (result < 0) {
-    printf("send cli message failed\n");
-    return 1;
-  }
+  struct sockaddr_un addr_remote;
+  int sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+  addr_remote.sun_family = AF_UNIX;
+  strcpy(addr_remote.sun_path, SOCK_PATH);
+  int addrlen = strlen(addr_remote.sun_path) + sizeof(addr_remote.sun_family);
+  int result = connect(sockfd, (struct sockaddr *)&addr_remote, addrlen);
+  result = send(sockfd, message, strlen(message), 0);
   return 0;
 }
 

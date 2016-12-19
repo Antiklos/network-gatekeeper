@@ -2,16 +2,13 @@
 
 #include "contract.h"
 
-bool deliver_service(T_STATE *state, T_CONFIG *config) {
-  time_t current_time = time(NULL);
-  if (state->time_expiration < current_time) return false;
-
-  return (state->account->balance > 0);
-}
-
-void evaluate_request(T_STATE *state, T_CONFIG *config) {
+bool evaluate_request(T_STATE *state, T_CONFIG *config) {
+  if (state->price > 0) {
+    return false;
+  }
   state->price = config->default_price;
-  state->time_expiration = time(NULL) + 60;
+  state->time_expiration = time(NULL) + config->contract_time;
+  return true;
 }
 
 bool evaluate_propose(T_STATE *state, T_CONFIG *config) {

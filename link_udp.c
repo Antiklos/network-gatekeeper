@@ -13,6 +13,26 @@ T_LINK_INTERFACE link_udp_interface() {
   return interface;
 }
 
+static int create_udp_socket(char *interface_id) {
+  struct sockaddr_in serv_in_addr;
+  int sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (sockfd < 0) { 
+    printf("ERROR opening socket\n");
+  }
+  serv_in_addr.sin_family = AF_INET;
+  serv_in_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  socklen_t sock_len = sizeof(serv_in_addr);
+  serv_in_addr.sin_port = htons(LINK_UDP_DEFAULT_PORT);
+  setsockopt(sockfd, SOL_SOCKET, SO_BINDTODEVICE, interface_id, strlen(interface_id) + 1 );
+  int result = bind(sockfd, (struct sockaddr *) &serv_in_addr, sock_len);
+  if (result < 0) {
+    printf("Binding error %i getting INET socket. Are you running as root?\n",result);
+    return -1;
+  }
+  printf("Created udp socket for port %u and sockfd %i\n",ntohs(serv_in_addr.sin_port),sockfd);
+  return sockfd;
+}
+
 void link_udp_init(T_INTERFACE interfaces[], int *new_connection, char *ignore_interface) {
   struct ifaddrs *addrs, *tmpaddr;
   getifaddrs(&addrs);
@@ -32,7 +52,7 @@ void link_udp_init(T_INTERFACE interfaces[], int *new_connection, char *ignore_i
         struct in_addr *addr_remote = (struct in_addr *)&addr_dst;
         strcpy(interfaces[*new_connection].net_addr_remote, inet_ntoa(*addr_remote));
         interfaces[*new_connection].broadcast = true;
-        interfaces[*new_connection].sockfd = create_udp_socket(interfaces[*new_connection].interface_id, false);
+        interfaces[*new_connection].sockfd = create_udp_socket(interfaces[*new_connection].interface_id);
 
         interfaces[*new_connection].scan_sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IP));
         struct ifreq ifr;

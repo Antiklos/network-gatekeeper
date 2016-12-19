@@ -17,16 +17,9 @@
 #define MAX_CONNECTIONS 4
 #define MAX_CONTRACTS 10
 #define MAX_ACCOUNTS 10
-#define MAX_INTERFACE_LEN 256
-#define MAX_ADDRESS_LEN 256
 
 // This needs to be made to be available local only
 #define UNIX_UDP_PORT 33546
-
-//The following three are assumptions for testing that should be eventually calculated dynamically
-#define MAX_PAYMENT 1000
-#define TIME_TO_TX_CONFIRM 5
-#define PACKET_THROUGHPUT 3
 
 //This needs to be configurable
 #define CONTRACT_DATA_SIZE 4096
@@ -64,7 +57,7 @@ typedef struct S_STATE {
   int sock_in;
   int sock_out;
   int status;
-  char address[MAX_ADDRESS_LEN];
+  char address[16];
   int64_t price;
   unsigned long int bytes_sent;
   time_t time_expiration;
@@ -79,6 +72,7 @@ typedef struct S_CONFIG {
   int64_t default_price;
   int contract_data;
   int contract_time;
+  int64_t payment_amount;
   int data_renewal;
   int time_renewal;
   char ignore_interface[IFNAMSIZ];
@@ -109,7 +103,6 @@ typedef struct S_PAYMENT_INTERFACE {
 } T_PAYMENT_INTERFACE;
 
 static T_CONFIG read_config();
-int create_udp_socket(char *interface_id, bool cli);
 static T_STATE* find_state(T_STATE states[], int *new_contract, T_ACCOUNT accounts[], int *new_account, T_INTERFACE *interface, char *address);
 
 #endif
