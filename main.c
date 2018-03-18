@@ -74,7 +74,7 @@ static T_CONFIG read_config()
   return config;
 }
 
-int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_interface, T_PAYMENT_INTERFACE payment_interface, T_NETWORK_INTERFACE network_interface, T_CONFIG *config) {
+static int parse_message(T_STATE *current_state, char *message, T_LINK_INTERFACE link_interface, T_PAYMENT_INTERFACE payment_interface, T_NETWORK_INTERFACE network_interface, T_CONFIG *config) {
     char *argument = strsep(&message," ");
     char buffer[CHAR_BUFFER_LEN];
     char *current_message = buffer;
@@ -263,8 +263,6 @@ int start(bool verbose)
     setbuf(stdout, NULL);
   }
 
-  int result, n;
-
   //Set up socket for CLI communication
   int cli_sockfd;
   struct sockaddr_un addr_local, addr_remote;
@@ -273,8 +271,8 @@ int start(bool verbose)
   strcpy(addr_local.sun_path, SOCK_PATH);
   unlink(addr_local.sun_path);
   int len = strlen(addr_local.sun_path) + sizeof(addr_local.sun_family);
-  result = bind(cli_sockfd, (struct sockaddr *)&addr_local, len);
-  result = listen(cli_sockfd, 5);
+  bind(cli_sockfd, (struct sockaddr *)&addr_local, len);
+  listen(cli_sockfd, 5);
 
   //Set up loop for events
   T_STATE states[MAX_CONTRACTS];
@@ -286,7 +284,6 @@ int start(bool verbose)
   int command_result = 0;
 
   unsigned int i;
-  int status;
 
   link_interface.link_init(interfaces, &new_connection, config.ignore_interface);
   pid_t payment_pid = payment_interface.payment_init();
@@ -395,11 +392,6 @@ int start(bool verbose)
       else {
         printf("Invalid command sent to server: %s %s\n", argument, message);
       }
-    }
-
-    if (n < 0) {
-      printf("ERROR writing to socket\n");
-      command_result = -1;
     }
   }
 

@@ -43,7 +43,9 @@ ncmd(n1,["ping", "-c", "15", "10.0.2.10"])
 
 ncmd(router,["sudo","./ngp","stop"])
 
-#ncmd(router,["sudo","cat","/var/log/network_gatekeeper.log"])
-#ncmd(n1,["sudo","cat","/var/log/network_gatekeeper.log"])
+print("\nRouter log:\n")
+ncmd(router,["sudo","cat","/var/log/network_gatekeeper.log"])
+print("\nClient log:\n")
+ncmd(n1,["sudo","cat","/var/log/network_gatekeeper.log"])
 
 session.shutdown()
