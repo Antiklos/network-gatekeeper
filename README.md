@@ -46,7 +46,7 @@ Tested only on Ubuntu 14.04 and Debian Jessie
 To get started right away with one machine, here's a guide on how to test it out:
 
 1. Install dependencies: sudo apt-get install gcc build-essential jq
-2. Compile the code: gcc main.c -o ngp
+2. Compile the code: make
 3. Start the server: sudo ./ngp start -v
 4. Now test that the server is receiving messages on the local unix socket: sudo ./ngp server test
 

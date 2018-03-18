@@ -1,7 +1,5 @@
 #!/usr/bin/python
 
-#Expected behavior: all 20 packets should be allowed through
-
 import time
 import sys
 import shutil
@@ -10,6 +8,8 @@ from core import pycore
 
 def ncmd(node, args):
   return node.redircmd(sys.stdin.fileno(),sys.stdout.fileno(),sys.stdout.fileno(),args)
+
+print("Expected behavior: all 20 packets should be allowed through")
 
 session = pycore.Session(persistent=True)
 
@@ -40,7 +40,7 @@ ncmd(n1,["ping", "-c", "20", "10.0.2.10"])
 ncmd(n1,["sudo","./ngp","stop"])
 ncmd(router,["sudo","./ngp","stop"])
 
-ncmd(router,["sudo","cat","/var/log/network_gatekeeper.log"])
-ncmd(n1,["sudo","cat","/var/log/network_gatekeeper.log"])
+#ncmd(router,["sudo","cat","/var/log/network_gatekeeper.log"])
+#ncmd(n1,["sudo","cat","/var/log/network_gatekeeper.log"])
 
 session.shutdown()
